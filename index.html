@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Dora-Run Engine (Vue3) - Spring 11</title>
+  <title>Dora-Run Engine v2 (Year Planner)</title>
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <style>
     :root{
@@ -17,13 +17,11 @@
       --warn:#f59e0b;
       --bad:#ef4444;
       --nav:#38bdf8;
-      --lock:#64748b;
       --shadow: 0 10px 25px rgba(0,0,0,.35);
       --radius:16px;
       --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
     }
-
     *{box-sizing:border-box}
     body{
       margin:0;
@@ -33,54 +31,18 @@
                   var(--bg);
       color:var(--ink);
     }
-    a{color:inherit}
-    .wrap{
-      max-width: 980px;
-      margin: 0 auto;
-      padding: 18px 14px 56px;
-    }
-
-    .topbar{
-      display:flex;
-      gap:12px;
-      align-items:stretch;
-      flex-wrap:wrap;
-      margin-bottom: 14px;
-    }
+    .wrap{max-width:1020px;margin:0 auto;padding:18px 14px 56px;}
     .card{
       background: linear-gradient(180deg, rgba(17,24,39,.95), rgba(15,23,42,.92));
       border:1px solid var(--line);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
     }
-    .hud{
-      flex: 1 1 520px;
-      padding: 14px 14px 12px;
-      display:grid;
-      gap:10px;
-    }
-    .hud .row{
-      display:flex;
-      gap:12px;
-      align-items:center;
-      flex-wrap:wrap;
-      justify-content:space-between;
-    }
-    .title{
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-    }
-    .title h1{
-      margin:0;
-      font-size: 16px;
-      letter-spacing:.2px;
-      line-height:1.15;
-    }
-    .title .sub{
-      font-size: 12px;
-      color: var(--muted);
-    }
+    .topbar{display:flex;gap:12px;align-items:stretch;flex-wrap:wrap;margin-bottom:14px;}
+    .hud{flex:1 1 580px;padding:14px;display:grid;gap:10px;}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between;}
+    h1{margin:0;font-size:16px;letter-spacing:.2px;line-height:1.15;}
+    .sub{font-size:12px;color:var(--muted);}
     .badge{
       font-family: var(--mono);
       font-size: 12px;
@@ -93,198 +55,38 @@
       align-items:center;
       white-space:nowrap;
     }
-    .dot{
-      width:8px;height:8px;border-radius:999px;
-      background: var(--muted);
-      display:inline-block;
-    }
-    .dot.ok{ background: var(--ok); }
-    .dot.warn{ background: var(--warn); }
-    .dot.bad{ background: var(--bad); }
-
-    .hudgrid{
-      display:grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
-      gap:10px;
-    }
+    .dot{width:8px;height:8px;border-radius:999px;background:var(--muted);display:inline-block;}
+    .dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)}
+    .hudgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
     .kpi{
-      padding: 10px 12px;
-      border-radius: 14px;
-      border:1px solid var(--line);
+      padding:10px 12px;border-radius:14px;border:1px solid var(--line);
       background: rgba(2,6,23,.35);
-      min-height: 66px;
-      display:flex;
-      flex-direction:column;
-      gap:6px;
+      min-height:70px;display:flex;flex-direction:column;gap:6px;
     }
-    .kpi .k{ font-size:12px; color:var(--muted); }
-    .kpi .v{
-      font-size: 18px;
-      font-weight: 700;
-      letter-spacing:.2px;
-      font-family: var(--mono);
+    .kpi .k{font-size:12px;color:var(--muted);}
+    .kpi .v{font-size:18px;font-weight:800;letter-spacing:.2px;font-family:var(--mono);}
+    .kpi .hint{font-size:11px;color:var(--muted);line-height:1.35;}
+    .v.bad{color:var(--bad)} .v.warn{color:var(--warn)} .v.ok{color:var(--ok)}
+    .controls{flex:0 0 360px;padding:14px;display:flex;flex-direction:column;gap:10px;justify-content:space-between;}
+    .pill{
+      display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border-radius:999px;
+      border:1px solid var(--line);background: rgba(2,6,23,.35);font-size:12px;color:var(--muted);
     }
-    .kpi .hint{
-      font-size: 11px;
-      color: var(--muted);
-    }
-    .v.bad{ color: var(--bad); }
-    .v.warn{ color: var(--warn); }
-    .v.ok{ color: var(--ok); }
-
-    .controls{
-      flex: 0 0 220px;
-      padding: 14px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      justify-content:space-between;
-    }
-    .btnrow{ display:flex; gap:8px; flex-wrap:wrap; }
+    .pill strong{color:var(--ink);font-family:var(--mono);font-weight:800;}
+    .btnrow{display:flex;gap:8px;flex-wrap:wrap;}
     button{
-      appearance:none;
-      border:1px solid var(--line);
-      background: rgba(2,6,23,.35);
-      color: var(--ink);
-      border-radius: 12px;
-      padding: 10px 12px;
-      font-size: 13px;
-      cursor:pointer;
+      appearance:none;border:1px solid var(--line);background: rgba(2,6,23,.35);color: var(--ink);
+      border-radius: 12px;padding:10px 12px;font-size:13px;cursor:pointer;
       transition: transform .05s ease, background .2s ease, border-color .2s ease;
       user-select:none;
     }
-    button:hover{ background: rgba(2,6,23,.55); }
-    button:active{ transform: translateY(1px); }
-    button.primary{
-      border-color: rgba(56,189,248,.45);
-      background: rgba(56,189,248,.14);
-    }
-    button.danger{
-      border-color: rgba(239,68,68,.45);
-      background: rgba(239,68,68,.12);
-    }
-    button.small{
-      padding: 8px 10px;
-      font-size: 12px;
-      border-radius: 10px;
-    }
-
-    .main{
-      padding: 14px;
-    }
-
-    .daymeta{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      align-items:center;
-      justify-content:space-between;
-      margin-bottom: 12px;
-    }
-    .daymeta .left{
-      display:flex; flex-direction:column; gap:6px;
-    }
-    .daymeta .left .goal{
-      font-size: 13px;
-      color: var(--muted);
-    }
-    .pill{
-      display:inline-flex;
-      gap:8px;
-      align-items:center;
-      padding: 6px 10px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      background: rgba(2,6,23,.35);
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .pill strong{ color: var(--ink); font-family: var(--mono); font-weight: 700; }
-
-    .tasks{
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-
-    .task{
-      padding: 12px 12px 10px;
-      border-radius: 16px;
-      border: 1px solid var(--line);
-      background: rgba(2,6,23,.32);
-      display:grid;
-      grid-template-columns: 34px 1fr auto;
-      gap: 10px;
-      align-items:start;
-      position:relative;
-      overflow:hidden;
-    }
-    .task::before{
-      content:"";
-      position:absolute;
-      inset:0;
-      background: linear-gradient(90deg, rgba(34,197,94,.10), transparent 45%);
-      opacity:0;
-      transition: opacity .2s ease;
-      pointer-events:none;
-    }
-    .task.done::before{ opacity:1; }
-
-    .task.locked{
-      opacity:.45;
-      filter: grayscale(.25);
-    }
-    .task.locked .toptitle{ color: rgba(229,231,235,.7); }
-    .task.locked .subline{ color: rgba(148,163,184,.7); }
-    .task.locked .nav{ color: rgba(56,189,248,.65); }
-    .task.locked .meta span{ border-color: rgba(148,163,184,.16); }
-
-    .chk{
-      width: 22px;
-      height: 22px;
-      border-radius: 8px;
-      border:1px solid var(--line);
-      background: rgba(2,6,23,.35);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      margin-top: 2px;
-    }
-    input[type="checkbox"]{
-      width: 18px;
-      height: 18px;
-      accent-color: #38bdf8;
-      cursor:pointer;
-    }
-    .task.locked input[type="checkbox"]{ cursor:not-allowed; }
-
-    .body{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      min-width:0;
-    }
-    .head{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      align-items:baseline;
-      justify-content:space-between;
-    }
-    .toptitle{
-      font-size: 14px;
-      font-weight: 700;
-      line-height:1.25;
-      margin:0;
-    }
-    .subline{
-      font-size: 12px;
-      color: var(--muted);
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      align-items:center;
-    }
+    button:hover{background: rgba(2,6,23,.55);} button:active{transform: translateY(1px);}
+    button.primary{border-color: rgba(56,189,248,.45);background: rgba(56,189,248,.14);}
+    button.danger{border-color: rgba(239,68,68,.45);background: rgba(239,68,68,.12);}
+    button.small{padding:8px 10px;font-size:12px;border-radius:10px;}
+    button:disabled{opacity:.5;cursor:not-allowed;}
+    .main{padding:14px;}
+    .daymeta{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px;}
     .time{
       font-family: var(--mono);
       font-size: 12px;
@@ -295,14 +97,28 @@
       background: rgba(2,6,23,.35);
       white-space:nowrap;
     }
-    .meta{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      align-items:center;
-      justify-content:flex-end;
-      margin-top: 2px;
+    .tasks{display:flex;flex-direction:column;gap:10px;}
+    .task{
+      padding:12px;border-radius:16px;border:1px solid var(--line);background: rgba(2,6,23,.32);
+      display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:start;position:relative;overflow:hidden;
     }
+    .task::before{
+      content:"";position:absolute;inset:0;background: linear-gradient(90deg, rgba(34,197,94,.10), transparent 45%);
+      opacity:0;transition: opacity .2s ease;pointer-events:none;
+    }
+    .task.done::before{opacity:1;}
+    .task.locked{opacity:.45;filter: grayscale(.25);}
+    .chk{
+      width:22px;height:22px;border-radius:8px;border:1px solid var(--line);background: rgba(2,6,23,.35);
+      display:flex;align-items:center;justify-content:center;margin-top:2px;
+    }
+    input[type="checkbox"]{width:18px;height:18px;accent-color:#38bdf8;cursor:pointer;}
+    .task.locked input[type="checkbox"]{cursor:not-allowed;}
+    .body{display:flex;flex-direction:column;gap:8px;min-width:0;}
+    .head{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between;}
+    .toptitle{font-size:14px;font-weight:800;line-height:1.25;margin:0;}
+    .subline{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+    .meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end;margin-top:2px;}
     .meta span{
       font-family: var(--mono);
       font-size: 12px;
@@ -312,76 +128,31 @@
       background: rgba(2,6,23,.35);
       white-space:nowrap;
     }
-    .meta .sl{
-      border-color: rgba(245,158,11,.45);
-      background: rgba(245,158,11,.12);
-    }
-    .meta .gplus{ border-color: rgba(34,197,94,.45); background: rgba(34,197,94,.10); }
-    .meta .gminus{ border-color: rgba(239,68,68,.45); background: rgba(239,68,68,.10); }
-    .meta .sminus{ border-color: rgba(245,158,11,.45); background: rgba(245,158,11,.10); }
-    .meta .splus{ border-color: rgba(56,189,248,.45); background: rgba(56,189,248,.12); }
-
-    .note{
-      font-size: 13px;
-      line-height:1.4;
-      color: rgba(229,231,235,.92);
-    }
+    .meta .sl{border-color: rgba(245,158,11,.45);background: rgba(245,158,11,.12);}
+    .meta .gplus{border-color: rgba(34,197,94,.45);background: rgba(34,197,94,.10);}
+    .meta .gminus{border-color: rgba(239,68,68,.45);background: rgba(239,68,68,.10);}
+    .meta .sminus{border-color: rgba(245,158,11,.45);background: rgba(245,158,11,.10);}
+    .meta .splus{border-color: rgba(56,189,248,.45);background: rgba(56,189,248,.12);}
+    .note{font-size:13px;line-height:1.4;color: rgba(229,231,235,.92);}
     .nav{
-      padding: 10px 10px;
-      border-radius: 14px;
-      border:1px solid rgba(56,189,248,.35);
-      background: rgba(56,189,248,.10);
-      color: var(--nav);
-      font-size: 13px;
-      line-height:1.35;
-      font-weight: 700;
-      letter-spacing:.2px;
+      padding:10px;border-radius:14px;border:1px solid rgba(56,189,248,.35);
+      background: rgba(56,189,248,.10);color: var(--nav);
+      font-size:13px;line-height:1.35;font-weight:800;letter-spacing:.2px;
     }
-    .nav .label{
-      font-family: var(--mono);
-      font-size: 12px;
-      color: rgba(56,189,248,.9);
-      opacity:.9;
-      margin-right:6px;
-    }
-    .nav .path{
-      font-weight: 800;
-    }
+    .nav .label{font-family:var(--mono);font-size:12px;color: rgba(56,189,248,.92);opacity:.9;margin-right:6px;}
     .nav .seg{
-      display:inline-block;
-      padding: 1px 6px;
-      border: 1px solid rgba(56,189,248,.28);
-      border-radius: 999px;
-      margin: 2px 4px 0 0;
-      background: rgba(2,6,23,.22);
-      font-family: var(--mono);
-      font-size: 12px;
-      font-weight: 700;
+      display:inline-block;padding:1px 6px;border:1px solid rgba(56,189,248,.28);border-radius:999px;
+      margin:2px 4px 0 0;background: rgba(2,6,23,.22);font-family: var(--mono);font-size:12px;font-weight:800;
     }
-
-    .foot{
-      font-size: 12px;
-      color: var(--muted);
-      line-height:1.5;
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top:1px dashed rgba(148,163,184,.22);
+    .foot{font-size:12px;color:var(--muted);line-height:1.5;margin-top:12px;padding-top:12px;border-top:1px dashed rgba(148,163,184,.22);}
+    @media (max-width: 820px){
+      .hudgrid{grid-template-columns:1fr 1fr;}
+      .task{grid-template-columns:34px 1fr;}
+      .meta{justify-content:flex-start;}
+      .controls{flex:1 1 360px;}
     }
-
-    .toast{
-      margin-top: 8px;
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .toast strong{
-      font-family: var(--mono);
-      color: var(--ink);
-    }
-
-    @media (max-width: 720px){
-      .hudgrid{ grid-template-columns: 1fr; }
-      .task{ grid-template-columns: 34px 1fr; }
-      .meta{ justify-content:flex-start; }
+    @media (max-width: 520px){
+      .hudgrid{grid-template-columns:1fr;}
     }
   </style>
 </head>
@@ -391,12 +162,11 @@
     <div class="topbar">
       <div class="hud card">
         <div class="row">
-          <div class="title">
-            <h1>{{ script.dayName }}</h1>
-            <div class="sub">{{ script.phaseGoal }} · 单日线性状态机执行引擎</div>
+          <div>
+            <h1>{{ currentDay.dayName }}</h1>
+            <div class="sub">{{ currentDay.phaseGoal }}</div>
           </div>
-
-          <div class="badge" title="强制线性执行：必须按顺序完成任务">
+          <div class="badge" title="强制线性执行：必须按顺序完成任务；取消会回滚后续">
             <span class="dot ok"></span>
             State Machine: Linear Lock
           </div>
@@ -404,68 +174,73 @@
 
         <div class="hudgrid">
           <div class="kpi">
-            <div class="k">金币 Gold</div>
+            <div class="k">Day Index</div>
+            <div class="v ok">{{ dayIndex+1 }}/{{ days.length }}</div>
+            <div class="hint">一年 120 天（春夏秋冬各 30 天）</div>
+          </div>
+
+          <div class="kpi">
+            <div class="k">Gold</div>
             <div class="v" :class="goldClass">{{ fmtGold(currentGold) }}</div>
-            <div class="hint" v-if="currentGold < 0">提示：金币为负仅作预估，不阻止勾选</div>
+            <div class="hint" v-if="currentGold < 0">金币为负仅预估（不阻止勾选）</div>
             <div class="hint" v-else>baseGold + 已完成任务 goldDiff</div>
           </div>
 
           <div class="kpi">
-            <div class="k">体力 Stamina</div>
+            <div class="k">Stamina</div>
             <div class="v" :class="staminaClass">{{ currentStamina }}/{{ maxStamina }}</div>
-            <div class="hint" v-if="currentStamina < 15">警告：体力低于 15，建议立刻补给</div>
+            <div class="hint" v-if="currentStamina < lowStamThreshold">警告：体力低于 {{ lowStamThreshold }}，建议立刻补给</div>
             <div class="hint" v-else>baseStamina + 已完成任务 stamDiff（封顶）</div>
           </div>
 
           <div class="kpi">
-            <div class="k">进度 Progress</div>
-            <div class="v ok">{{ doneCount }}/{{ script.tasks.length }}</div>
-            <div class="hint">后续任务未解锁前会灰色锁定</div>
+            <div class="k">Progress</div>
+            <div class="v ok">{{ doneCount }}/{{ currentDay.tasks.length }}</div>
+            <div class="hint">最后一步“睡觉结算”会推进到下一天</div>
           </div>
-        </div>
-
-        <div class="toast">
-          自动保存：<strong>localStorage</strong> · 刷新不会丢进度
         </div>
       </div>
 
       <div class="controls card">
         <div style="display:flex;flex-direction:column;gap:10px;">
-          <div class="pill">
-            当前日：<strong>{{ script.dayName }}</strong>
-          </div>
-          <div class="pill">
-            体力封顶：<strong>{{ maxStamina }}</strong>
-          </div>
-          <div class="pill">
-            低体力阈值：<strong>15</strong>
-          </div>
+          <div class="pill">体力封顶：<strong>{{ maxStamina }}</strong></div>
+          <div class="pill">低体力阈值：<strong>{{ lowStamThreshold }}</strong></div>
+          <div class="pill">禁令：<strong>不钓鱼 / 不捕虫 / 无厨房</strong></div>
+          <div class="pill">社交：<strong>静香 / 塞雷娜 / 薇拉 / 杰玛</strong></div>
         </div>
 
         <div class="btnrow">
-          <button class="primary" @click="markUntilNext()">一键做到下一步</button>
-          <button class="small" @click="toggleShowNotes()">{{ showNotes ? '隐藏备注' : '显示备注' }}</button>
+          <button class="primary" @click="prevDay()" :disabled="dayIndex===0">上一天</button>
+          <button class="primary" @click="nextDay()" :disabled="dayIndex===days.length-1">下一天</button>
+          <button class="small" @click="toggleNotes()">{{ showNotes ? '隐藏备注' : '显示备注' }}</button>
           <button class="danger" @click="hardReset()">硬重置</button>
+        </div>
+
+        <div class="foot">
+          强校验默认值：
+          - 体力封顶 {{ maxStamina }}（超过截断）
+          - 金币允许为负（红色提示，不阻止勾选）
+          - S/L 任务勾选必弹 confirm
+          - 取消任意任务会回滚它之后所有任务（避免断链）
+          - 自动保存 localStorage（刷新不丢）
         </div>
       </div>
     </div>
 
     <div class="main card">
       <div class="daymeta">
-        <div class="left">
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <span class="time">BaseGold: {{ fmtGold(script.baseGold) }}</span>
-            <span class="time">BaseStam: {{ script.baseStamina }}</span>
-            <span class="time">Hard Constraints: 无钓鱼/无捕虫/无厨房</span>
-          </div>
-          <div class="goal">执行目标：{{ script.phaseGoal }}</div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <span class="time">BaseGold: {{ fmtGold(currentDay.baseGold) }}</span>
+          <span class="time">BaseStam: {{ currentDay.baseStamina }}</span>
+          <span class="time">Season: {{ currentDay.season }} {{ currentDay.dayOfSeason }}</span>
+          <span class="time" v-if="currentDay.festival">Festival: {{ currentDay.festival.name }}</span>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <span class="badge" :title="currentStamina < 15 ? '体力过低：请补给' : '体力正常'">
-            <span class="dot" :class="currentStamina < 15 ? 'bad' : 'ok'"></span>
-            Stamina {{ currentStamina < 15 ? 'CRITICAL' : 'OK' }}
+          <span class="badge" :title="currentStamina < lowStamThreshold ? '体力过低：请补给' : '体力正常'">
+            <span class="dot" :class="currentStamina < lowStamThreshold ? 'bad' : 'ok'"></span>
+            Stamina {{ currentStamina < lowStamThreshold ? 'CRITICAL' : 'OK' }}
           </span>
-          <span class="badge" :title="currentGold < 0 ? '金币为负：仅预估，不阻止执行' : '金币正常'">
+          <span class="badge" :title="currentGold < 0 ? '金币为负：仅预估' : '金币正常'">
             <span class="dot" :class="currentGold < 0 ? 'warn' : 'ok'"></span>
             Gold {{ currentGold < 0 ? 'NEGATIVE' : 'OK' }}
           </span>
@@ -473,19 +248,9 @@
       </div>
 
       <div class="tasks">
-        <div
-          class="task"
-          v-for="(t, idx) in script.tasks"
-          :key="t.id"
-          :class="taskClass(idx)"
-        >
+        <div class="task" v-for="(t, idx) in currentDay.tasks" :key="t.id" :class="taskClass(idx)">
           <div class="chk">
-            <input
-              type="checkbox"
-              :checked="isDone(t.id)"
-              :disabled="isLocked(idx)"
-              @change="onToggleTask(t, idx, $event)"
-            />
+            <input type="checkbox" :checked="isDone(t.id)" :disabled="isLocked(idx)" @change="onToggleTask(t, idx, $event)"/>
           </div>
 
           <div class="body">
@@ -511,11 +276,9 @@
 
             <div v-if="t.nav" class="nav">
               <span class="label">NAV</span>
-              <span class="path">
-                <template v-for="(seg, i) in navSegments(t.nav)" :key="i">
-                  <span class="seg">{{ seg }}</span>
-                </template>
-              </span>
+              <template v-for="(seg, i) in navSegments(t.nav)" :key="i">
+                <span class="seg">{{ seg }}</span>
+              </template>
             </div>
 
             <div v-if="showNotes && t.note" class="note">{{ t.note }}</div>
@@ -523,20 +286,23 @@
             <div class="subline">
               <span v-if="t.npc">NPC：{{ t.npc }}</span>
               <span v-if="t.tags && t.tags.length">标签：{{ t.tags.join(' / ') }}</span>
-              <span v-if="t.isSL" style="color:rgba(245,158,11,.95);font-weight:700;">
+              <span v-if="t.isSL" style="color:rgba(245,158,11,.95);font-weight:800;">
                 重要：此任务勾选会弹确认，确保你真的刷到了
               </span>
             </div>
+          </div>
+
+          <div v-if="t.actionHint" class="time" style="align-self:start;justify-self:end;">
+            {{ t.actionHint }}
           </div>
         </div>
       </div>
 
       <div class="foot">
-        规则默认值已按你的需求定死：
-        - 体力封顶 {{ maxStamina }}（执行中超过会被截断）
-        - 金币允许为负，仅作预估，不阻止勾选（会提示 NEGATIVE）
-        - 状态会自动保存到 localStorage（刷新不丢）
-        - 线性状态机：取消前置任务会自动回滚并锁住后续任务，避免断链
+        这个版本是“全年自动脚本生成器”：
+        - 平日：最短动线【送礼四人】+【矿洞 B5 S/L 两轮】+【结算睡觉】
+        - 节日：自动插入“节日占用时间”任务；凡涉及捕虫/料理/钓鱼，一律标注为跳过
+        - 你后续只要改：矿洞收益估算、送礼优先级、或加入工具升级材料门槛，就能滚到 TAS 级别
       </div>
     </div>
   </div>
@@ -545,128 +311,338 @@
 <script>
 const { createApp } = Vue;
 
+function pad2(n){ return String(n).padStart(2,"0"); }
+function dayLabel(season, d){ return `${season} ${d}`; }
+
+// 节日表：来自 Doraemon: Story of Seasons (Dor) Calendar
+// 春 14/18/28/30；夏 1/7/14/18/28；秋 3/9/18/24/28；冬 3/9/14/16/28/30
+// 注：你禁捕虫/无厨房，所以 Beetle Race / Cooking Contest 会自动“跳过”
+const FESTIVALS = {
+  Spring: {
+    14: { name: "Spring Thanksgiving", time: "All day", type: "social" },
+    18: { name: "Horse Race", time: "10:00-18:00", type: "contest" },
+    28: { name: "Spring Harvest Contest", time: "10:00-18:00", type: "contest" },
+    30: { name: "Cork Rifle Event", time: "10:00-18:00", type: "minigame" },
+  },
+  Summer: {
+    1:  { name: "Split the Watermelon", time: "10:00-18:00", type: "minigame" },
+    7:  { name: "Beetle Race (禁捕虫 → 跳过)", time: "10:00-18:00", type: "skip" },
+    14: { name: "Chicken Contest (可跳)", time: "10:00-18:00", type: "optional" },
+    18: { name: "Fireworks Fest", time: "19:00-21:00", type: "social" },
+    28: { name: "Summer Harvest Contest", time: "10:00-18:00", type: "contest" },
+  },
+  Fall: {
+    3:  { name: "Goddess Fest", time: "10:00-18:00", type: "social" },
+    9:  { name: "Harvest Fest (无厨房 → 跳过)", time: "10:00-18:00", type: "skip" },
+    18: { name: "Moon-viewing Event", time: "10:00-18:00", type: "social" },
+    24: { name: "Sheep Contest (可跳)", time: "10:00-18:00", type: "optional" },
+    28: { name: "Fall Harvest Contest", time: "10:00-18:00", type: "contest" },
+  },
+  Winter: {
+    3:  { name: "Treasure Hunt (可跳)", time: "10:00-18:00", type: "optional" },
+    9:  { name: "Cooking Contest (无厨房 → 跳过)", time: "10:00-18:00", type: "skip" },
+    14: { name: "Winter Thanksgiving", time: "All day", type: "social" },
+    16: { name: "Cow Contest (可跳)", time: "10:00-18:00", type: "optional" },
+    28: { name: "Winter Harvest Contest", time: "10:00-18:00", type: "contest" },
+    30: { name: "New Year's Fest", time: "21:00-24:00", type: "social" },
+  }
+};
+
+// 路痴导航：统一模板（你不记地图，所以强行固定动线文字）
+const NAV = {
+  farmToTownCenter: "牧场出门向右 -> 过石桥 -> 一直向右到镇中心广场（大空地）",
+  townCenterToClinic: "镇中心广场 -> 往右侧走 -> 看到白色十字标志 -> 进门就是医院",
+  townCenterToStore:  "镇中心广场 -> 往左上走 -> 木质招牌小店 -> 进门柜台旁就是杰玛",
+  townCenterToInn:    "镇中心广场 -> 往右侧走 -> 红砖+招牌建筑 -> 饭店/旅店入口",
+  townCenterToMine:   "镇中心广场 -> 往右上方向走上山道 -> 一直向上看到洞口 -> 进矿洞",
+  mineLoopB5:         "进矿洞 -> 直冲下楼到 B5（优先找绳子/下楼点）-> 保存 -> 挖点位 -> 不出货就读档重来",
+  backToFarm:         "从镇中心广场 -> 原路向左 -> 过石桥 -> 回牧场 -> 进屋存档",
+  beachAloe:          "镇中心广场 -> 往右下方向走 -> 到海边沙滩 -> 沿海边找芦荟（Aloe）"
+};
+
+// 送礼策略（无厨房版）：
+// - 塞雷娜：优先 芦荟 / 牧草类野菜（如 Shepherd's Purse）/ 花
+// - 杰玛：P. Daisy / Carrots（能买/能种就用）/ 花
+// - 薇拉：花为主（无料理）
+// - 静香：花为主（无烹饪）
+function giftPlanText(season){
+  const seasonalFlower = season === "Spring" ? "春季花（P. Daisy/野花）"
+                    : season === "Summer" ? "夏季花（野花）"
+                    : season === "Fall"   ? "秋季花（野花）"
+                    : "冬季花/野草（能捡到啥送啥）";
+  return {
+    serena: `送礼：芦荟（海边）优先；没有就送 ${seasonalFlower}。对话一次。`,
+    jemma:  `送礼：${seasonalFlower} 优先；能买到/有库存就送 Carrot。对话一次。`,
+    vera:   `送礼：花为主；如果你已能接触到 Vera，就补送 Cabbage（非料理）。对话一次。`,
+    sue:    `送礼：花为主（无厨房禁料理）。对话一次。`,
+    veraNote: "Vera 出现与剧情/地点相关：先按你能见到她的阶段执行，见不到就跳过本任务（不算失败）。"
+  };
+}
+
+// 矿洞收益估算：按你的“90% 经济靠 S/L”做近似
+// 你后续可把 goldDiff 调高（刷到琥珀/化石大货时）
+// 参考：B5 起会有 Gold Ore/Amber/Fossils 等（售价参考）
+// 这里用保守值：一轮 4500G，二轮 3500G（体力不足可减少）
+function mineYield(dayIndex){
+  // 早期资金更紧：稍微保守；中后期工具升级后可更高
+  if (dayIndex < 10) return { a: 3800, b: 3000 };
+  if (dayIndex < 40) return { a: 4500, b: 3500 };
+  return { a: 5200, b: 4200 };
+}
+
+// 每日脚本生成器：输出你要的 JSON 结构（dayName/phaseGoal/baseGold/baseStamina/tasks）
+function buildDayScript(globalDayIndex, season, dayOfSeason){
+  const festival = (FESTIVALS[season] && FESTIVALS[season][dayOfSeason]) ? FESTIVALS[season][dayOfSeason] : null;
+  const gifts = giftPlanText(season);
+  const yields = mineYield(globalDayIndex);
+
+  const dayName = `${season} ${dayOfSeason} (Year1 · 资产最大化日常)`;
+  const phaseGoal =
+    globalDayIndex < 10 ? "目标：快速解锁矿洞经济循环（S/L）+ 建立四女NPC日更送礼动线"
+    : globalDayIndex < 40 ? "目标：资金稳定 > 20000G，工具优先升级路线准备"
+    : "目标：矿洞收益滚雪球 + 四女NPC好感稳定推进（无厨房版本）";
+
+  const tasks = [];
+  let id = 1;
+
+  // 06:00 轻量农务（不追求量，追求“不要拖慢矿洞”）
+  tasks.push({
+    id: id++,
+    time: "06:00",
+    title: "起床：极简农务（只做必要）",
+    nav: "起床 -> 出门右手边就是田 -> 只浇你现在要保留的作物 -> 立刻收手",
+    note: "你的主经济是矿洞 S/L；农务只保留最小成本维持。绝不加戏。",
+    stamDiff: -12,
+    goldDiff: 0,
+    tags: ["Farm","Stamina"]
+  });
+
+  // 07:00 取野果/补给（允许：竹笋/梅子/路边野果；也可去医院买精力饮料）
+  tasks.push({
+    id: id++,
+    time: "07:00",
+    title: "路边补给：捡野果/野花（当日送礼与回血材料）",
+    nav: "牧场出门向右 -> 沿路捡野花/野草/野果 -> 看到就捡（不绕远）",
+    note: "无厨房：野花=万能礼物；野果=低成本回血。看到就捡，不绕路。",
+    stamDiff: -3,
+    goldDiff: 0,
+    tags: ["Forage","NoKitchen"]
+  });
+
+  // 08:30 先医院：买精力饮料 + 送塞雷娜（护士）
+  tasks.push({
+    id: id++,
+    time: "08:30",
+    title: "【路线A】医院：买精力饮料 + 送礼（塞雷娜）",
+    nav: `${NAV.farmToTownCenter} -> ${NAV.townCenterToClinic}`,
+    note: "买精力饮料：默认 2~5 瓶（看你钱）。" + " " + gifts.serena,
+    stamDiff: 0,
+    goldDiff: -600,
+    npc: "塞雷娜 (医院护士)",
+    tags: ["NPC","Gift","NoKitchen"]
+  });
+
+  // 09:10 杂货店：送杰玛（买便宜货/胡萝卜备选）
+  tasks.push({
+    id: id++,
+    time: "09:10",
+    title: "【路线B】杂货店：送礼（杰玛）+ 便宜补给",
+    nav: `${NAV.townCenterToStore}`,
+    note: gifts.jemma + " 只买便宜必需品，别被购物欲拖死。",
+    stamDiff: 0,
+    goldDiff: -150,
+    npc: "杰玛 (杂货店)",
+    tags: ["NPC","Gift","NoKitchen"]
+  });
+
+  // 09:40 饭店：送薇拉（无料理）
+  tasks.push({
+    id: id++,
+    time: "09:40",
+    title: "【路线C】饭店：送礼（薇拉）",
+    nav: `${NAV.townCenterToInn}`,
+    note: "送礼：花为主（无厨房禁料理）。对话一次，立刻走。",
+    stamDiff: 0,
+    goldDiff: 0,
+    npc: "薇拉 (饭店)",
+    tags: ["NPC","Gift","NoKitchen"]
+  });
+
+  // 10:00 节日占用（如果有）
+  if (festival){
+    const isSkip = festival.type === "skip";
+    const isAllDay = festival.time === "All day";
+    tasks.push({
+      id: id++,
+      time: "10:00",
+      title: `节日提示：${festival.name}（${festival.time}）`,
+      nav: isAllDay ? "提示：今天事件可能分散全镇；你按路线送礼/挖矿即可"
+                    : "镇中心广场/活动地点 -> 但你可选择不参加，继续挖矿滚雪球",
+      note: isSkip
+        ? "与你规则冲突（禁捕虫/无厨房等）→ 直接跳过，不参加。把时间全部砸进矿洞。"
+        : "可选：参加/不参加都行。竞速视角：除非它能直接加速工具/资金，否则优先矿洞。",
+      stamDiff: 0,
+      goldDiff: 0,
+      tags: ["Festival", isSkip ? "Skip" : "Optional"]
+    });
+  }
+
+  // 10:30 去矿洞
+  tasks.push({
+    id: id++,
+    time: "10:30",
+    title: "矿洞一轮：B5 深潜 S/L（核心赚钱）",
+    isSL: true,
+    nav: `${NAV.townCenterToMine} -> ${NAV.mineLoopB5}`,
+    note: "规则：没出货不许走。先保存，再挖固定点位；出货后再勾选。目标：化石/琥珀/金矿。",
+    stamDiff: -38,
+    goldDiff: yields.a,
+    tags: ["Mine","SL","Economy"]
+  });
+
+  // 13:30 海边补芦荟（塞雷娜备用礼物 + 回血路线也顺）
+  tasks.push({
+    id: id++,
+    time: "13:30",
+    title: "海边：补芦荟（Aloe）+ 顺手回血",
+    nav: `${NAV.farmToTownCenter} -> ${NAV.beachAloe}`,
+    note: "芦荟是无厨房送礼神物（尤其对塞雷娜）。体力低就吃野果，别回家睡午觉。",
+    stamDiff: -4,
+    goldDiff: 0,
+    tags: ["Forage","Gift"]
+  });
+
+  // 14:10 矿洞二轮
+  tasks.push({
+    id: id++,
+    time: "14:10",
+    title: "矿洞二轮：B5 再刷一次（体力不足就喝精力饮料）",
+    isSL: true,
+    nav: `${NAV.townCenterToMine} -> ${NAV.mineLoopB5}`,
+    note: `体力 < 15：优先喝精力饮料。仍按“没出货不许走”。（二轮是滚雪球关键）`,
+    stamDiff: -28,
+    goldDiff: yields.b,
+    tags: ["Mine","SL"]
+  });
+
+  // 16:30 静香：对话+送礼（地点可能浮动，所以导航写“镇中心巡逻法”）
+  tasks.push({
+    id: id++,
+    time: "16:30",
+    title: "静香：对话 + 送礼（无厨房版本）",
+    nav: "从镇中心广场开始 -> 先看广场四周 -> 再沿主路绕一圈（医院-杂货-饭店）-> 看见静香就送",
+    note: gifts.sue,
+    stamDiff: 0,
+    goldDiff: 0,
+    npc: "静香 (Sue)",
+    tags: ["NPC","Gift","NoKitchen"]
+  });
+
+  // 17:30 Vera：可选（你能见到才做，见不到跳过）
+  tasks.push({
+    id: id++,
+    time: "17:30",
+    title: "薇拉/维拉：如果你已能接触到 Vera → 对话 + 送礼（否则跳过）",
+    nav: "提示：Vera 常与特定地点/剧情相关 -> 你若今天能见到她就送花；见不到就直接跳过这步",
+    note: gifts.vera + " " + gifts.veraNote,
+    stamDiff: 0,
+    goldDiff: 0,
+    npc: "Vera",
+    tags: ["NPC","Optional","Gift"]
+  });
+
+  // 18:30 回家结算
+  tasks.push({
+    id: id++,
+    time: "18:30",
+    title: "回牧场：整理背包 + 卖矿洞货（按你策略）",
+    nav: `${NAV.backToFarm}`,
+    note: "竞速规则：能直接换现金的化石/琥珀优先卖；升级材料（矿石）留够后再卖剩余。",
+    stamDiff: 0,
+    goldDiff: 0,
+    tags: ["WrapUp"]
+  });
+
+  // 20:30 睡觉推进下一天（关键：会把当前 gold 继承到下一天 baseGold）
+  tasks.push({
+    id: id++,
+    time: "20:30",
+    title: "存档睡觉：推进到下一天（自动继承金币）",
+    nav: "进屋 -> 存档 -> 睡觉（结算）",
+    note: "这个勾选会触发“日结算”：下一天 baseGold = 当前金币；体力重置为满。",
+    stamDiff: 0,
+    goldDiff: 0,
+    tags: ["DayEnd"],
+    isDayEnd: true,
+    actionHint: "ADVANCE DAY"
+  });
+
+  return {
+    dayName,
+    phaseGoal,
+    season,
+    dayOfSeason,
+    festival,
+    baseGold: 0, // 会由引擎从上一日继承
+    baseStamina: 100,
+    tasks
+  };
+}
+
+function buildYear(){
+  const seasons = ["Spring","Summer","Fall","Winter"];
+  const days = [];
+  let idx = 0;
+  for (const s of seasons){
+    for (let d=1; d<=30; d++){
+      days.push(buildDayScript(idx, s, d));
+      idx++;
+    }
+  }
+  return days;
+}
+
 createApp({
   data(){
     return {
-      storageKey: "dora_run_engine_v1_spring11",
-      showNotes: true,
+      storageKey: "dora_run_engine_year_v2",
       maxStamina: 100,
-      script: {
-        dayName: "Spring 11 (狂暴攒钱日)",
-        phaseGoal: "资金突破 20000G（矿洞 S/L 主驱动）",
-        baseGold: 0,      // 会由 localStorage 继承（如你后续扩展多天脚本）
-        baseStamina: 100, // 封顶由 maxStamina 控制
-        tasks: [
-          {
-            id: 1,
-            time: "06:00",
-            title: "精准浇水（只浇必要作物，别贪）",
-            nav: "起床 -> 出门右手边就是田 -> 从上到下扫一遍 -> 结束立刻收水壶",
-            note: "体力管理优先：这一步只为维持基础产出，不追求量。",
-            stamDiff: -15,
-            goldDiff: 0,
-            tags: ["Farm", "Stamina"]
-          },
-          {
-            id: 2,
-            time: "08:40",
-            title: "【路线A】医院买精力饮料 + 送礼（塞雷娜）",
-            nav: "牧场出门向右 -> 过石桥 -> 继续向右到镇中心 -> 看到白色十字标志就是医院 -> 进门右侧柜台",
-            note: "买 5 瓶精力饮料（不够钱也先记账）。送礼：路边花 / 芦荟（海边）优先给塞雷娜。对话一次。",
-            stamDiff: 0,
-            goldDiff: -1000,
-            npc: "塞雷娜 (医院护士)",
-            tags: ["NPC", "Gift", "NoKitchen"]
-          },
-          {
-            id: 3,
-            time: "09:20",
-            title: "【路线B】杂货店补给 + 送礼（杰玛）",
-            nav: "医院出门 -> 向左回镇中心广场 -> 左上角木质招牌的小店就是杂货店 -> 进门柜台旁就是杰玛",
-            note: "优先买便宜稳定补给（如精力饮料预算不够就先跳过）。送礼：路边花/便宜货（避免料理）。对话一次。",
-            stamDiff: 0,
-            goldDiff: -300,
-            npc: "杰玛 (杂货店)",
-            tags: ["NPC", "Gift", "NoKitchen"]
-          },
-          {
-            id: 4,
-            time: "10:00",
-            title: "【路线C】饭店门口蹲点送礼（薇拉）",
-            nav: "杂货店出门 -> 往镇中心右侧走 -> 看到红砖+招牌的建筑就是饭店 -> 门口/柜台附近找薇拉",
-            note: "送礼：花/芦荟/便宜货（不要料理）。只做对话+送礼，不浪费时间点餐。",
-            stamDiff: 0,
-            goldDiff: 0,
-            npc: "薇拉 (饭店)",
-            tags: ["NPC", "Gift", "NoKitchen"]
-          },
-          {
-            id: 5,
-            time: "10:30",
-            title: "深潜矿洞 B5：S/L 挖化石/琥珀/金矿（没出不许走）",
-            isSL: true,
-            nav: "镇中心 -> 往右上方向走到山道 -> 一直向上看到洞口就是矿洞 -> 进洞直冲 B5（优先下楼，不恋战）",
-            note: "核心经济来源 90% 来自这里。目标：化石/琥珀/金矿点。没有出货：读档重来。出货后再勾选。",
-            stamDiff: -40,
-            goldDiff: 4500,
-            tags: ["Mine", "SL", "Economy"]
-          },
-          {
-            id: 6,
-            time: "13:30",
-            title: "矿洞二轮：B5 再刷一次（视体力决定是否喝药）",
-            isSL: true,
-            nav: "矿洞内 -> 继续反复 B5 S/L -> 出货后撤退 -> 需要补给则就地喝精力饮料",
-            note: "如果体力 < 15：优先喝精力饮料（你也可以把这步的 stamDiff 改成正数表示补给）。",
-            stamDiff: -30,
-            goldDiff: 3500,
-            tags: ["Mine", "SL"]
-          },
-          {
-            id: 7,
-            time: "16:30",
-            title: "回程补社交：静香（Sue）对话 + 送礼（只做一次）",
-            nav: "从山道下到镇中心 -> 找到静香常驻点（通常在镇中心附近活动）-> 看到黄色头发/温柔气质就是她",
-            note: "无厨房替代礼物：花/芦荟/便宜货。对话一次，送礼一次，马上走。",
-            stamDiff: 0,
-            goldDiff: 0,
-            npc: "静香 (Sue)",
-            tags: ["NPC", "Gift", "NoKitchen"]
-          },
-          {
-            id: 8,
-            time: "18:30",
-            title: "收尾结算：整理背包 + 明日矿洞准备（不做无意义移动）",
-            nav: "回到牧场 -> 进屋 -> 整理背包 -> 存档（重要）",
-            note: "把化石/琥珀/矿石卖出或留作升级材料按你策略决定。此步建议手动在游戏里完成后再勾。",
-            stamDiff: 0,
-            goldDiff: 0,
-            tags: ["WrapUp"]
-          },
-        ]
-      },
-      doneIds: []
+      lowStamThreshold: 15,
+      showNotes: true,
+
+      days: buildYear(),
+      dayIndex: 0,
+
+      // per-day done map: { [dayIndex]: number[] }
+      doneMap: {},
+      // carry over
+      carryGold: 0
     };
   },
   computed:{
+    currentDay(){ return this.days[this.dayIndex]; },
+    doneIds(){
+      return this.doneMap[this.dayIndex] || [];
+    },
     doneCount(){ return this.doneIds.length; },
 
     currentGold(){
-      const delta = this.script.tasks
+      const base = Number(this.currentDay.baseGold) || 0;
+      const delta = this.currentDay.tasks
         .filter(t => this.doneIds.includes(t.id))
         .reduce((sum, t) => sum + (Number(t.goldDiff) || 0), 0);
-      return (Number(this.script.baseGold) || 0) + delta;
+      return base + delta;
     },
     currentStamina(){
-      const delta = this.script.tasks
+      const base = Number(this.currentDay.baseStamina) || 0;
+      const delta = this.currentDay.tasks
         .filter(t => this.doneIds.includes(t.id))
         .reduce((sum, t) => sum + (Number(t.stamDiff) || 0), 0);
-      const base = Number(this.script.baseStamina) || 0;
       const raw = base + delta;
       return Math.max(0, Math.min(this.maxStamina, raw));
     },
     staminaClass(){
-      if (this.currentStamina < 15) return "bad";
+      if (this.currentStamina < this.lowStamThreshold) return "bad";
       if (this.currentStamina < 30) return "warn";
       return "ok";
     },
@@ -677,6 +653,7 @@ createApp({
   },
   mounted(){
     this.load();
+    this.applyCarryToBase();
   },
   methods:{
     fmtGold(n){
@@ -686,26 +663,35 @@ createApp({
       return sign + abs.toLocaleString("en-US");
     },
     navSegments(navStr){
-      // 允许使用 "->" 分隔；也兼容中文箭头
       const s = String(navStr || "").replace(/→/g, "->");
       return s.split("->").map(x => x.trim()).filter(Boolean);
     },
-
     isDone(id){ return this.doneIds.includes(id); },
 
     isLocked(idx){
-      // 线性状态机：必须完成前一个任务才能解锁当前
       if (idx === 0) return false;
-      const prevId = this.script.tasks[idx - 1].id;
+      const prevId = this.currentDay.tasks[idx - 1].id;
       return !this.doneIds.includes(prevId);
     },
-
     taskClass(idx){
-      const t = this.script.tasks[idx];
-      return {
-        done: this.isDone(t.id),
-        locked: this.isLocked(idx)
-      };
+      const t = this.currentDay.tasks[idx];
+      return { done: this.isDone(t.id), locked: this.isLocked(idx) };
+    },
+
+    ensureDayDoneMap(){
+      if (!this.doneMap[this.dayIndex]) this.doneMap[this.dayIndex] = [];
+    },
+    markDone(id){
+      this.ensureDayDoneMap();
+      const arr = this.doneMap[this.dayIndex];
+      if (!arr.includes(id)) arr.push(id);
+      const order = new Map(this.currentDay.tasks.map((t,i)=>[t.id,i]));
+      arr.sort((a,b)=>order.get(a)-order.get(b));
+    },
+    rollbackFromIndex(idx){
+      this.ensureDayDoneMap();
+      const idsToRemove = this.currentDay.tasks.slice(idx).map(t => t.id);
+      this.doneMap[this.dayIndex] = this.doneIds.filter(id => !idsToRemove.includes(id));
     },
 
     onToggleTask(task, idx, evt){
@@ -717,7 +703,6 @@ createApp({
       }
 
       if (wantDone){
-        // S/L 任务：确认弹窗
         if (task.isSL){
           const ok = confirm("S/L 防呆警报：你是否已在游戏中确认拿到目标物品/出货？\n\n- 已出货：点确定\n- 没出货：点取消，回去读档继续刷");
           if (!ok){
@@ -725,42 +710,78 @@ createApp({
             return;
           }
         }
+        if (task.isDayEnd){
+          const ok = confirm("日结算：确定要睡觉推进到下一天吗？\n\n将会：\n- 下一天 baseGold = 当前金币\n- 下一天体力重置为满\n- 自动存档引擎进度");
+          if (!ok){
+            evt.target.checked = false;
+            return;
+          }
+        }
+
         this.markDone(task.id);
+
+        // 如果是 DayEnd：推进到下一天并继承金币
+        if (task.isDayEnd){
+          this.carryGold = this.currentGold;
+          this.advanceToNextDayAuto();
+        }
+
       } else {
-        // 回滚：取消该任务 -> 自动撤销它之后所有任务，避免断链
         this.rollbackFromIndex(idx);
       }
 
       this.save();
+      this.applyCarryToBase();
     },
 
-    markDone(id){
-      if (!this.doneIds.includes(id)) this.doneIds.push(id);
-      // 保持顺序一致（按任务顺序）
-      const order = new Map(this.script.tasks.map((t,i)=>[t.id,i]));
-      this.doneIds.sort((a,b)=>order.get(a)-order.get(b));
+    applyCarryToBase(){
+      // 当前 day baseGold：如果是第 1 天，用 carryGold（默认 0）
+      // 如果不是第 1 天，baseGold = 前一天 carryGold（从存档读出来）
+      const base = (this.dayIndex === 0) ? (this.carryGold || 0) : (this.getCarryForDay(this.dayIndex) || this.currentDay.baseGold || 0);
+      this.currentDay.baseGold = base;
+
+      // baseStamina 固定满（你无厨房、靠饮料/野果；结算后重置满更符合执行引擎）
+      this.currentDay.baseStamina = this.maxStamina;
     },
 
-    rollbackFromIndex(idx){
-      const idsToRemove = this.script.tasks.slice(idx).map(t => t.id);
-      this.doneIds = this.doneIds.filter(id => !idsToRemove.includes(id));
+    getCarryForDay(dayIndex){
+      // dayIndex 的 baseGold 应该来自 dayIndex-1 的“结算金币”
+      const prev = dayIndex - 1;
+      if (prev < 0) return 0;
+
+      // 计算 prevDay 结算金币：prevDay.baseGold + prevDay 完成任务 goldDiff
+      const prevDay = this.days[prev];
+      const donePrev = this.doneMap[prev] || [];
+      const base = Number(prevDay.baseGold) || 0;
+      const delta = prevDay.tasks
+        .filter(t => donePrev.includes(t.id))
+        .reduce((sum, t) => sum + (Number(t.goldDiff)||0), 0);
+      return base + delta;
     },
 
-    markUntilNext(){
-      // 一键做到下一步：把当前可执行的第一个未完成任务勾上（若是 SL 也会弹 confirm）
-      const idx = this.script.tasks.findIndex((t, i) => !this.isDone(t.id) && !this.isLocked(i));
-      if (idx === -1) return;
+    advanceToNextDayAuto(){
+      if (this.dayIndex >= this.days.length - 1) return;
+      this.dayIndex++;
+      // 初始化下一天 doneIds
+      this.ensureDayDoneMap();
+      // 套用继承
+      this.applyCarryToBase();
+    },
 
-      const t = this.script.tasks[idx];
-      if (t.isSL){
-        const ok = confirm("S/L 防呆警报：你是否已在游戏中确认拿到目标物品/出货？\n\n- 已出货：点确定\n- 没出货：点取消，回去读档继续刷");
-        if (!ok) return;
-      }
-      this.markDone(t.id);
+    prevDay(){
+      if (this.dayIndex === 0) return;
+      this.dayIndex--;
+      this.applyCarryToBase();
+      this.save();
+    },
+    nextDay(){
+      if (this.dayIndex >= this.days.length - 1) return;
+      this.dayIndex++;
+      this.applyCarryToBase();
       this.save();
     },
 
-    toggleShowNotes(){
+    toggleNotes(){
       this.showNotes = !this.showNotes;
       this.save();
     },
@@ -768,17 +789,16 @@ createApp({
     save(){
       try{
         const payload = {
-          v: 1,
+          v: 2,
           maxStamina: this.maxStamina,
+          lowStamThreshold: this.lowStamThreshold,
           showNotes: this.showNotes,
-          baseGold: this.script.baseGold,
-          baseStamina: this.script.baseStamina,
-          doneIds: this.doneIds
+          dayIndex: this.dayIndex,
+          doneMap: this.doneMap,
+          carryGold: this.carryGold
         };
         localStorage.setItem(this.storageKey, JSON.stringify(payload));
-      }catch(e){
-        // ignore
-      }
+      }catch(e){}
     },
 
     load(){
@@ -786,25 +806,27 @@ createApp({
         const raw = localStorage.getItem(this.storageKey);
         if (!raw) return;
         const p = JSON.parse(raw);
-        if (!p || p.v !== 1) return;
+        if (!p || p.v !== 2) return;
 
         if (typeof p.maxStamina === "number") this.maxStamina = p.maxStamina;
+        if (typeof p.lowStamThreshold === "number") this.lowStamThreshold = p.lowStamThreshold;
         if (typeof p.showNotes === "boolean") this.showNotes = p.showNotes;
+        if (typeof p.dayIndex === "number") this.dayIndex = Math.max(0, Math.min(this.days.length-1, p.dayIndex));
+        if (typeof p.carryGold === "number") this.carryGold = p.carryGold;
 
-        if (typeof p.baseGold === "number") this.script.baseGold = p.baseGold;
-        if (typeof p.baseStamina === "number") this.script.baseStamina = p.baseStamina;
+        if (p.doneMap && typeof p.doneMap === "object") this.doneMap = p.doneMap;
 
-        if (Array.isArray(p.doneIds)) this.doneIds = p.doneIds.filter(x => typeof x === "number");
-      }catch(e){
-        // ignore
-      }
+      }catch(e){}
     },
 
     hardReset(){
-      const ok = confirm("硬重置：将清空所有勾选进度与本地保存。确定要重置吗？");
+      const ok = confirm("硬重置：清空全年进度与本地保存。确定？");
       if (!ok) return;
-      this.doneIds = [];
+      this.doneMap = {};
+      this.dayIndex = 0;
+      this.carryGold = 0;
       try{ localStorage.removeItem(this.storageKey); }catch(e){}
+      this.applyCarryToBase();
     }
   }
 }).mount("#app");
