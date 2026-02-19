@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dora-TAS 极限竞速引擎 V2.0</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        /* 极限竞速风格：剥离一切无效视觉干扰 */
+        :root {
+            --bg-base: #0a0a0c;
+            --panel-bg: #141418;
+            --text-main: #d1d1d1;
+            --text-muted: #666;
+            --tas-green: #00ff66;
+            --tas-red: #ff3366;
+            --tas-gold: #ffcc00;
+            --tas-blue: #00ccff;
+        }
+        * { box-sizing: border-box; font-family: 'Consolas', 'Courier New', monospace; }
+        body { background-color: var(--bg-base); color: var(--text-main); margin: 0; padding: 20px; display: flex; justify-content: center; line-height: 1.5; }
+        .app-container { width: 100%; max-width: 600px; padding-bottom: 50px; }
+        
+        /* 顶部 HUD 仪表盘 */
+        .hud-panel {
+            background: var(--panel-bg); border: 1px solid #333; border-top: 4px solid var(--tas-green);
+            padding: 15px; border-radius: 6px; position: sticky; top: 10px; z-index: 100;
+            box-shadow: 0 4px 15px rgba(0,255,102,0.05); margin-bottom: 20px;
+        }
+        .hud-header { display: flex; justify-content: space-between; font-size: 1.2rem; font-weight: bold; margin-bottom: 10px; color: #fff;}
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .stat-box { background: #000; padding: 10px; border-radius: 4px; border: 1px solid #222; text-align: center; }
+        .stat-value { font-size: 1.4rem; font-weight: bold; }
+        .val-gold { color: var(--tas-gold); }
+        .val-stamina { color: var(--tas-blue); }
+
+        /* 任务流线 */
+        .timeline { position: relative; padding-left: 20px; border-left: 2px solid #333; margin-left: 10px; }
+        .task-item {
+            background: var(--panel-bg); margin-bottom: 15px; padding: 12px; border-radius: 4px;
+            position: relative; transition: all 0.2s; border: 1px solid transparent;
+            display: flex; align-items: flex-start; gap: 10px;
+        }
+        .task-item::before {
+            content: ''; position: absolute; left: -26px; top: 18px; width: 10px; height: 10px;
+            border-radius: 50%; background: #333; border: 2px solid var(--bg-base); transition: 0.2s;
+        }
+        
+        /* 状态机变体 */
+        .task-item.active { border-color: var(--tas-blue); box-shadow: 0 0 10px rgba(0,204,255,0.1); }
+        .task-item.active::before { background: var(--tas-blue); box-shadow: 0 0 8px var(--tas-blue); }
+        .task-item.completed { opacity: 0.5; border-color: #222; }
+        .task-item.completed::before { background: var(--tas-green); }
+        .task-item.locked { opacity: 0.3; filter: grayscale(1); pointer-events: none; }
+        .task-item.is-sl { border-left: 3px solid var(--tas-red); }
+
+        /* 复选框逻辑 */
+        .task-check {
+            width: 24px; height: 24px; border: 2px solid #555; border-radius: 4px;
+            cursor: pointer; display: flex; justify-content: center; align-items: center; flex-shrink: 0;
+            margin-top: 2px; transition: 0.2s; background: #000;
+        }
+        .task-item.completed .task-check { background: var(--tas-green); border-color: var(--tas-green); color: #000; }
+        .task-item.completed .task-check::after { content: '✓'; font-weight: bold; }
+        
+        /* 文本排版 */
+        .task-content { flex-grow: 1; }
+        .task-time { color: var(--tas-green); font-weight: bold; margin-right: 8px; }
+        .task-title { font-size: 1.1rem; color: #fff; }
+        .task-meta { font-size: 0.85rem; color: var(--text-muted); margin-top: 6px; display: flex; gap: 10px; flex-wrap: wrap;}
+        .badge { padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; color: #000; font-weight: bold; }
+        .bg-red { background: var(--tas-red); }
+        .bg-gold { background: var(--tas-gold); }
+        .bg-blue { background: var(--tas-blue); }
+
+        /* 路痴导航特供 */
+        .nav-text { margin-top: 6px; font-size: 0.85rem; color: #ff9f43; background: rgba(255,159,67,0.1); padding: 5px; border-left: 2px solid #ff9f43;}
+
+        /* 控制台 */
+        .controls { display: flex; justify-content: space-between; margin-top: 20px; }
+        button { background: #222; color: #fff; border: 1px solid #444; padding: 10px 20px; font-family: inherit; cursor: pointer; transition: 0.2s; font-weight: bold;}
+        button:hover { background: #333; }
+        button:disabled { opacity: 0.3; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+<div id="app" class="app-container">
+    <div class="hud-panel">
+        <div class="hud-header">
+            <span>{{ currentDayData.dayName }}</span>
+            <span style="font-size: 0.9rem; color: var(--text-muted)">阶段目标: {{ currentDayData.phaseGoal }}</span>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div style="font-size: 0.8rem; color: var(--text-muted)">预计资产 (G)</div>
+                <div class="stat-value val-gold">{{ currentGold }}</div>
+            </div>
+            <div class="stat-box">
+                <div style="font-size: 0.8rem; color: var(--text-muted)">当前体力值</div>
+                <div class="stat-value val-stamina">{{ currentStamina }} / 100</div>
+            </div>
+        </div>
+        <div v-if="staminaWarning" style="color: var(--tas-red); font-size: 0.85rem; margin-top: 10px; text-align: center; font-weight:bold; background: rgba(255,51,102,0.1); padding: 5px;">
+            ⚠️ 警告：体力极度危险，禁止挥舞工具！
+        </div>
+    </div>
+
+    <div class="timeline">
+        <div 
+            v-for="(task, index) in currentDayData.tasks" 
+            :key="task.id"
+            class="task-item"
+            :class="{ 
+                'completed': task.status === 'done', 
+                'active': task.status === 'active',
+                'locked': task.status === 'locked',
+                'is-sl': task.isSL 
+            }"
+        >
+            <div class="task-check" @click="executeTask(index)"></div>
+            <div class="task-content">
+                <div>
+                    <span class="task-time">{{ task.time }}</span>
+                    <span class="task-title">{{ task.title }}</span>
+                </div>
+                
+                <div class="task-meta">
+                    <span v-if="task.isSL" class="badge bg-red">强制 S/L</span>
+                    <span v-if="task.goldDiff" class="badge bg-gold">{{ task.goldDiff > 0 ? '+' : ''}}{{ task.goldDiff }} G</span>
+                    <span v-if="task.stamDiff" class="badge bg-blue">{{ task.stamDiff > 0 ? '+' : ''}}{{ task.stamDiff }} 体力</span>
+                </div>
+                
+                <div v-if="task.note" style="margin-top: 6px; font-size: 0.9rem; color: #aaa;">
+                    ➤ {{ task.note }}
+                </div>
+                <div v-if="task.nav" class="nav-text">
+                    📍 <b>导航:</b> {{ task.nav }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button @click="prevDay" :disabled="dayIndex === 0">◀ 撤回</button>
+        <button @click="resetDay" style="color: var(--tas-red); border-color: var(--tas-red);">↻ 重置本日</button>
+        <button @click="nextDay" :disabled="dayIndex === db.length - 1" style="color: var(--tas-green); border-color: var(--tas-green);">结算此日 ▶</button>
+    </div>
+</div>
+
+<script>
+    const { createApp } = Vue;
+
+    // ==========================================
+    // 竞速剧本数据库 (Spring Day 1 - 10)
+    // 专门针对: 狂暴挖矿 + 放弃钓鱼/做饭 + 狂舔女性NPC
+    // ==========================================
+    const speedrunDB = [
+        {
+            dayName: "Spring 01 (强制过场日)",
+            phaseGoal: "无情按A跳剧情，积攒初始战略物资",
+            baseGold: 0,
+            baseStamina: 100,
+            tasks: [
+                { id: 1, time: "06:00", title: "跳过教程剧情", note: "狂按A键跳过，不要看字。", stamDiff: 0, goldDiff: 0 },
+                { id: 2, time: "13:00", title: "拔草与捡石头", note: "清理牧场。杂草和石头是初期的送礼神器，绝对不许卖！放入屋内收纳箱。", stamDiff: -20, goldDiff: 0 },
+                { id: 3, time: "18:00", title: "立刻睡觉存档", stamDiff: 20, goldDiff: 0 }
+            ]
+        },
+        {
+            dayName: "Spring 02 (全镇签到与基建)",
+            phaseGoal: "零失误跑图，拿全所有工具",
+            baseGold: 0, baseStamina: 100,
+            tasks: [
+                { id: 1, time: "06:00", title: "出门拿种子", note: "镇长强制给芜菁种子", stamDiff: 0, goldDiff: 0 },
+                { id: 2, time: "08:00", title: "【路线A】杂货店找杰玛", nav: "牧场向右 -> 过石桥 -> 进镇子向右 -> 上台阶第一家店", note: "拿种子，顺手送她一朵路边捡的花", stamDiff: 0, goldDiff: 0 },
+                { id: 3, time: "09:00", title: "【路线B】打铁店拿镐子", nav: "出杂货店 -> 往右下走 -> 有铁砧招牌", note: "拿到十字镐，竞速关键！", stamDiff: 0, goldDiff: 0 },
+                { id: 4, time: "09:30", title: "【路线C】医院找护士塞雷娜", nav: "打铁店往左下 -> 白色十字架建筑", note: "进门触发剧情，送她路边的杂草/花。", stamDiff: 0, goldDiff: 0 },
+                { id: 5, time: "10:00", title: "【路线D】饭店找薇拉", nav: "医院右边 -> 红砖建筑", note: "进门打招呼，不用买东西，没钱。", stamDiff: 0, goldDiff: 0 },
+                { id: 6, time: "11:00", title: "【路线E】木工屋找潘特", nav: "原路跑回牧场 -> 往左走进入哗啦河 -> 往上看到粉色大树根进屋", note: "这是最远的点，跑完就全解锁了", stamDiff: 0, goldDiff: 0 },
+                { id: 7, time: "14:00", title: "回牧场种地", note: "开垦3x3的格子，种下芜菁，浇水。", stamDiff: -20, goldDiff: 0 },
+                { id: 8, time: "16:00", title: "睡觉", stamDiff: 20, goldDiff: 0 }
+            ]
+        },
+        {
+            dayName: "Spring 03 (血汗矿工日)",
+            phaseGoal: "S/L 挖掘第一桶金",
+            baseGold: 0, baseStamina: 100,
+            tasks: [
+                { id: 1, time: "06:00", title: "浇水并捡破烂", note: "浇完水去后山捡几个竹笋或梅子（回体力用）", stamDiff: -10, goldDiff: 0 },
+                { id: 2, time: "10:00", title: "前往矿洞", nav: "牧场向左 -> 哗啦河 -> 粉色树根左上角的黑洞口", stamDiff: 0, goldDiff: 0 },
+                { id: 3, time: "10:30", title: "深潜地下 3 层", isSL: true, note: "每层进门存档 -> 找楼梯 -> 读档直接挖。保持0无效耗体。", stamDiff: -10, goldDiff: 0 },
+                { id: 4, time: "13:00", title: "挖出化石/琥珀", isSL: true, note: "在地下3层疯狂S/L，没挖出价值3000G以上的化石绝不离开！", stamDiff: -20, goldDiff: 3000 },
+                { id: 5, time: "18:00", title: "极速出货", note: "把化石扔进红箱子，铜矿石保留千万别卖。", stamDiff: 0, goldDiff: 0 }
+            ]
+        },
+        {
+            dayName: "Spring 04 (资本变现日)",
+            phaseGoal: "购买大背包，解除槽位限制",
+            baseGold: 3000, baseStamina: 100,
+            tasks: [
+                { id: 1, time: "06:00", title: "日常浇水", stamDiff: -10, goldDiff: 0 },
+                { id: 2, time: "08:00", title: "杂货店扫货", nav: "去镇上杂货店", note: "购买大背包！购买1包高级肥料！", stamDiff: 0, goldDiff: -3000 },
+                { id: 3, time: "09:00", title: "种下冠军作物", note: "单种一颗芜菁，撒上刚买的高级肥料，每天施肥，为28日比赛做准备。", stamDiff: -5, goldDiff: 0 },
+                { id: 4, time: "10:00", title: "进城送礼", note: "送市长芜菁，送护士塞雷娜花草，送静香花。", stamDiff: 0, goldDiff: 0 },
+                { id: 5, time: "13:00", title: "重返矿洞", note: "随便挖点铜矿石，不要太肝，保持体力", stamDiff: -40, goldDiff: 1000 }
+            ]
+        },
+        {
+            dayName: "Spring 05 (关键道具解锁战)",
+            phaseGoal: "必须挖到金矿石，为任意门做准备",
+            baseGold: 1000, baseStamina: 100,
+            tasks: [
+                { id: 1, time: "06:00", title: "浇水施肥", note: "别忘了冠军芜菁", stamDiff: -10, goldDiff: 0 },
+                { id: 2, time: "09:00", title: "下矿深层", note: "今天必须下到地下 4-5 层以上", stamDiff: -20, goldDiff: 0, isSL: true },
+                { id: 3, time: "14:00", title: "挖取金矿石", note: "S/L 挖金矿！只要挖到一个，立刻收手，这是解锁神器的钥匙。", stamDiff: -30, goldDiff: 0, isSL: true },
+                { id: 4, time: "18:00", title: "挖取化石变现", stamDiff: -20, goldDiff: 4000 }
+            ]
+        },
+        {
+            dayName: "Spring 06 (工欲善其事)",
+            phaseGoal: "十字镐升级铜级",
+            baseGold: 5000, baseStamina: 100,
+            tasks: [
+                { id: 1, time: "06:00", title: "浇水施肥", stamDiff: -10, goldDiff: 0 },
+                { id: 2, time: "10:00", title: "铁匠铺升级工具", nav: "打铁店", note: "带着铜矿石和钱，把十字镐升级为铜镐。接下来几天不能挖矿了。", stamDiff: 0, goldDiff: -1500 },
+                { id: 3, time: "11:00", title: "社交疯狂送礼", note: "拿着路边的野果、鲜花，按顺序送：静香 -> 护士 -> 杰玛 -> 薇拉 -> 市长", stamDiff: -10, goldDiff: 0 },
+                { id: 4, time: "16:00", title: "砍树敲石头", note: "用剩余的体力在牧场囤积点软木和普通石材", stamDiff: -50, goldDiff: 0 }
+            ]
+        },
+        {
+            dayName: "Spring 07 (修整与布局)",
+            phaseGoal: "利用工具真空期刷好感",
+            baseGold: 3500, baseStamina: 100,
+            tasks: [
+                { id: 1, time: "06:00", title: "浇水施肥", stamDiff: -10, goldDiff: 0 },
+                { id: 2, time: "10:00", title: "医院买药", nav: "去医院找医生", note: "大量购买精力饮料（每瓶200G），为明天拿回镐子后的爆肝做准备。顺便送护士礼。", stamDiff: 0, goldDiff: -2000 },
+                { id: 3, time: "12:00", title: "静香跟踪狂", nav: "大地图寻找静香图标", note: "多与静香对话，这几天集中冲她的好感。", stamDiff: 0, goldDiff: 0 },
+                { id: 4, time: "15:00", title: "捡破烂", nav: "全图扫荡", note: "清理地图上所有能捡的竹笋、梅子，留作吃或送礼。", stamDiff: -10, goldDiff: 0 }
+            ]
+        },
+        {
+            dayName: "Spring 08 (重返荣耀)",
+            phaseGoal: "取回铜镐，挖矿效率翻倍",
+            baseGold: 1500, baseStamina: 100,
+            tasks: [
+                { id: 1, time: "06:00", title: "浇水施肥", stamDiff: -10, goldDiff: 0 },
+                { id: 2, time: "09:00", title: "取回铜镐", nav: "铁匠铺", note: "去打铁店拿到铜十字镐，从此挖普通的石头只要一下！", stamDiff: 0, goldDiff: 0 },
+                { id: 3, time: "10:00", title: "带着金矿石找市长", nav: "镇东金色大房子", note: "把包里的金矿石带上，触发任意门剧情（如果好感度已到）。未触发则继续送他芜菁。", stamDiff: 0, goldDiff: 0 },
+                { id: 4, time: "12:00", title: "无限下矿流", note: "带着昨天买的药，直接杀穿矿洞，目标 8000G。", stamDiff: -80, goldDiff: 8000 }
+            ]
+        },
+        {
+            dayName: "Spring 09 (芜菁大丰收)",
+            phaseGoal: "第一波作物变现",
+            baseGold: 9500, baseStamina: 100,
+            tasks: [
+                { id: 1, time: "06:00", title: "收割除比赛外所有芜菁", note: "保留那颗每天施肥的！其他的全拔了扔进出货箱。", stamDiff: -20, goldDiff: 1500 },
+                { id: 2, time: "08:00", title: "杂货店买补给", note: "买新的芜菁种子种下。", stamDiff: 0, goldDiff: -500 },
+                { id: 3, time: "10:00", title: "每日女性送礼循环", note: "护士(花) -> 静香(花) -> 薇拉(花)", stamDiff: 0, goldDiff: 0 },
+                { id: 4, time: "13:00", title: "继续挖矿", stamDiff: -60, goldDiff: 3000 }
+            ]
+        },
+        {
+            dayName: "Spring 10 (神速任意门)",
+            phaseGoal: "拿到任意门，地图移动时间彻底清零",
+            baseGold: 13500, baseStamina: 100,
+            tasks: [
+                { id: 1, time: "06:00", title: "浇水施肥", stamDiff: -10, goldDiff: 0 },
+                { id: 2, time: "09:00", title: "市长家提货", nav: "市长家", note: "如果前几天触发了剧情，今天再去一次，镇长会给你【任意门】！", stamDiff: 0, goldDiff: 0 },
+                { id: 3, time: "09:30", title: "任意门试驾送礼", note: "按L/R直接飞！瞬间跑完4个妹子送花！节省现实时间5分钟。", stamDiff: 0, goldDiff: 0 },
+                { id: 4, time: "11:00", title: "瞬间移动下矿", note: "直接飞到哗啦河，下矿，今天目标突破万元。", stamDiff: -70, goldDiff: 5000 }
+            ]
+        }
+    ];
+
+    createApp({
+        data() {
+            return {
+                dayIndex: 0,
+                db: speedrunDB,
+                goldSnapshot: [0] // 记录每天开始时的真实资金快照，实现完美的时空回溯
+            }
+        },
+        computed: {
+            currentDayData() {
+                let day = JSON.parse(JSON.stringify(this.db[this.dayIndex]));
+                let isLocked = false;
+                
+                day.tasks.forEach((task, idx) => {
+                    if (!task.status) {
+                        if (isLocked) {
+                            task.status = 'locked';
+                        } else if (idx === 0 || day.tasks[idx-1].status === 'done') {
+                            task.status = 'active';
+                        } else {
+                            task.status = 'locked';
+                        }
+                    }
+                    if (task.status !== 'done') isLocked = true;
+                });
+                return day;
+            },
+            currentGold() {
+                // 严谨的资金流计算模型
+                let base = this.goldSnapshot[this.dayIndex];
+                let diff = 0;
+                this.db[this.dayIndex].tasks.forEach(t => {
+                    if (t.status === 'done' && t.goldDiff) diff += t.goldDiff;
+                });
+                return base + diff;
+            },
+            currentStamina() {
+                let stam = 100;
+                this.db[this.dayIndex].tasks.forEach(t => {
+                    if (t.status === 'done' && t.stamDiff) stam += t.stamDiff;
+                });
+                return stam > 100 ? 100 : stam;
+            },
+            staminaWarning() {
+                return this.currentStamina <= 15;
+            }
+        },
+        methods: {
+            executeTask(index) {
+                const task = this.currentDayData.tasks[index];
+                if (task.status === 'locked') return;
+
+                if (task.isSL && task.status !== 'done') {
+                    if(!confirm("🔥 强制节点防呆验证：\n你确定已经在游戏内通过 S/L 达成了该目标？没拿到不要点确定！")) return;
+                }
+
+                const realTask = this.db[this.dayIndex].tasks[index];
+                if (realTask.status === 'done') {
+                    for(let i = index; i < this.db[this.dayIndex].tasks.length; i++) {
+                        delete this.db[this.dayIndex].tasks[i].status;
+                    }
+                } else {
+                    realTask.status = 'done';
+                }
+            },
+            nextDay() {
+                if (this.dayIndex < this.db.length - 1) {
+                    // 结算并将当前金币快照存入下一天
+                    this.goldSnapshot[this.dayIndex + 1] = this.currentGold;
+                    this.dayIndex++;
+                    window.scrollTo(0, 0);
+                } else {
+                    alert("🏆 前 10 天极限试炼完成！你的预估资产已达 " + this.currentGold + " G！");
+                }
+            },
+            prevDay() {
+                if (this.dayIndex > 0) {
+                    this.dayIndex--;
+                    window.scrollTo(0, 0);
+                }
+            },
+            resetDay() {
+                if(confirm("将清除今天的所有打勾记录，确定吗？")) {
+                    this.db[this.dayIndex].tasks.forEach(t => delete t.status);
+                }
+            }
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>
