@@ -1,367 +1,813 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
+<!doctype html>
+<html lang="zh-Hans">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dora-TAS 极限竞速引擎 V2.0</title>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <style>
-        /* 极限竞速风格：剥离一切无效视觉干扰 */
-        :root {
-            --bg-base: #0a0a0c;
-            --panel-bg: #141418;
-            --text-main: #d1d1d1;
-            --text-muted: #666;
-            --tas-green: #00ff66;
-            --tas-red: #ff3366;
-            --tas-gold: #ffcc00;
-            --tas-blue: #00ccff;
-        }
-        * { box-sizing: border-box; font-family: 'Consolas', 'Courier New', monospace; }
-        body { background-color: var(--bg-base); color: var(--text-main); margin: 0; padding: 20px; display: flex; justify-content: center; line-height: 1.5; }
-        .app-container { width: 100%; max-width: 600px; padding-bottom: 50px; }
-        
-        /* 顶部 HUD 仪表盘 */
-        .hud-panel {
-            background: var(--panel-bg); border: 1px solid #333; border-top: 4px solid var(--tas-green);
-            padding: 15px; border-radius: 6px; position: sticky; top: 10px; z-index: 100;
-            box-shadow: 0 4px 15px rgba(0,255,102,0.05); margin-bottom: 20px;
-        }
-        .hud-header { display: flex; justify-content: space-between; font-size: 1.2rem; font-weight: bold; margin-bottom: 10px; color: #fff;}
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .stat-box { background: #000; padding: 10px; border-radius: 4px; border: 1px solid #222; text-align: center; }
-        .stat-value { font-size: 1.4rem; font-weight: bold; }
-        .val-gold { color: var(--tas-gold); }
-        .val-stamina { color: var(--tas-blue); }
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dora-Run Engine (Vue3) - Spring 11</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    :root{
+      --bg:#0b0f17;
+      --panel:#111827;
+      --panel2:#0f172a;
+      --ink:#e5e7eb;
+      --muted:#94a3b8;
+      --line:rgba(148,163,184,.18);
+      --ok:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --nav:#38bdf8;
+      --lock:#64748b;
+      --shadow: 0 10px 25px rgba(0,0,0,.35);
+      --radius:16px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+    }
 
-        /* 任务流线 */
-        .timeline { position: relative; padding-left: 20px; border-left: 2px solid #333; margin-left: 10px; }
-        .task-item {
-            background: var(--panel-bg); margin-bottom: 15px; padding: 12px; border-radius: 4px;
-            position: relative; transition: all 0.2s; border: 1px solid transparent;
-            display: flex; align-items: flex-start; gap: 10px;
-        }
-        .task-item::before {
-            content: ''; position: absolute; left: -26px; top: 18px; width: 10px; height: 10px;
-            border-radius: 50%; background: #333; border: 2px solid var(--bg-base); transition: 0.2s;
-        }
-        
-        /* 状态机变体 */
-        .task-item.active { border-color: var(--tas-blue); box-shadow: 0 0 10px rgba(0,204,255,0.1); }
-        .task-item.active::before { background: var(--tas-blue); box-shadow: 0 0 8px var(--tas-blue); }
-        .task-item.completed { opacity: 0.5; border-color: #222; }
-        .task-item.completed::before { background: var(--tas-green); }
-        .task-item.locked { opacity: 0.3; filter: grayscale(1); pointer-events: none; }
-        .task-item.is-sl { border-left: 3px solid var(--tas-red); }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      background: radial-gradient(1200px 600px at 20% 0%, rgba(56,189,248,.12), transparent 60%),
+                  radial-gradient(1200px 600px at 90% 30%, rgba(34,197,94,.10), transparent 60%),
+                  var(--bg);
+      color:var(--ink);
+    }
+    a{color:inherit}
+    .wrap{
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 18px 14px 56px;
+    }
 
-        /* 复选框逻辑 */
-        .task-check {
-            width: 24px; height: 24px; border: 2px solid #555; border-radius: 4px;
-            cursor: pointer; display: flex; justify-content: center; align-items: center; flex-shrink: 0;
-            margin-top: 2px; transition: 0.2s; background: #000;
-        }
-        .task-item.completed .task-check { background: var(--tas-green); border-color: var(--tas-green); color: #000; }
-        .task-item.completed .task-check::after { content: '✓'; font-weight: bold; }
-        
-        /* 文本排版 */
-        .task-content { flex-grow: 1; }
-        .task-time { color: var(--tas-green); font-weight: bold; margin-right: 8px; }
-        .task-title { font-size: 1.1rem; color: #fff; }
-        .task-meta { font-size: 0.85rem; color: var(--text-muted); margin-top: 6px; display: flex; gap: 10px; flex-wrap: wrap;}
-        .badge { padding: 2px 6px; border-radius: 3px; font-size: 0.75rem; color: #000; font-weight: bold; }
-        .bg-red { background: var(--tas-red); }
-        .bg-gold { background: var(--tas-gold); }
-        .bg-blue { background: var(--tas-blue); }
+    .topbar{
+      display:flex;
+      gap:12px;
+      align-items:stretch;
+      flex-wrap:wrap;
+      margin-bottom: 14px;
+    }
+    .card{
+      background: linear-gradient(180deg, rgba(17,24,39,.95), rgba(15,23,42,.92));
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .hud{
+      flex: 1 1 520px;
+      padding: 14px 14px 12px;
+      display:grid;
+      gap:10px;
+    }
+    .hud .row{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      flex-wrap:wrap;
+      justify-content:space-between;
+    }
+    .title{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .title h1{
+      margin:0;
+      font-size: 16px;
+      letter-spacing:.2px;
+      line-height:1.15;
+    }
+    .title .sub{
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .badge{
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(2,6,23,.35);
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      white-space:nowrap;
+    }
+    .dot{
+      width:8px;height:8px;border-radius:999px;
+      background: var(--muted);
+      display:inline-block;
+    }
+    .dot.ok{ background: var(--ok); }
+    .dot.warn{ background: var(--warn); }
+    .dot.bad{ background: var(--bad); }
 
-        /* 路痴导航特供 */
-        .nav-text { margin-top: 6px; font-size: 0.85rem; color: #ff9f43; background: rgba(255,159,67,0.1); padding: 5px; border-left: 2px solid #ff9f43;}
+    .hudgrid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:10px;
+    }
+    .kpi{
+      padding: 10px 12px;
+      border-radius: 14px;
+      border:1px solid var(--line);
+      background: rgba(2,6,23,.35);
+      min-height: 66px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .kpi .k{ font-size:12px; color:var(--muted); }
+    .kpi .v{
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing:.2px;
+      font-family: var(--mono);
+    }
+    .kpi .hint{
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .v.bad{ color: var(--bad); }
+    .v.warn{ color: var(--warn); }
+    .v.ok{ color: var(--ok); }
 
-        /* 控制台 */
-        .controls { display: flex; justify-content: space-between; margin-top: 20px; }
-        button { background: #222; color: #fff; border: 1px solid #444; padding: 10px 20px; font-family: inherit; cursor: pointer; transition: 0.2s; font-weight: bold;}
-        button:hover { background: #333; }
-        button:disabled { opacity: 0.3; cursor: not-allowed; }
-    </style>
+    .controls{
+      flex: 0 0 220px;
+      padding: 14px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      justify-content:space-between;
+    }
+    .btnrow{ display:flex; gap:8px; flex-wrap:wrap; }
+    button{
+      appearance:none;
+      border:1px solid var(--line);
+      background: rgba(2,6,23,.35);
+      color: var(--ink);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
+      cursor:pointer;
+      transition: transform .05s ease, background .2s ease, border-color .2s ease;
+      user-select:none;
+    }
+    button:hover{ background: rgba(2,6,23,.55); }
+    button:active{ transform: translateY(1px); }
+    button.primary{
+      border-color: rgba(56,189,248,.45);
+      background: rgba(56,189,248,.14);
+    }
+    button.danger{
+      border-color: rgba(239,68,68,.45);
+      background: rgba(239,68,68,.12);
+    }
+    button.small{
+      padding: 8px 10px;
+      font-size: 12px;
+      border-radius: 10px;
+    }
+
+    .main{
+      padding: 14px;
+    }
+
+    .daymeta{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom: 12px;
+    }
+    .daymeta .left{
+      display:flex; flex-direction:column; gap:6px;
+    }
+    .daymeta .left .goal{
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .pill{
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      padding: 6px 10px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background: rgba(2,6,23,.35);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .pill strong{ color: var(--ink); font-family: var(--mono); font-weight: 700; }
+
+    .tasks{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .task{
+      padding: 12px 12px 10px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(2,6,23,.32);
+      display:grid;
+      grid-template-columns: 34px 1fr auto;
+      gap: 10px;
+      align-items:start;
+      position:relative;
+      overflow:hidden;
+    }
+    .task::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background: linear-gradient(90deg, rgba(34,197,94,.10), transparent 45%);
+      opacity:0;
+      transition: opacity .2s ease;
+      pointer-events:none;
+    }
+    .task.done::before{ opacity:1; }
+
+    .task.locked{
+      opacity:.45;
+      filter: grayscale(.25);
+    }
+    .task.locked .toptitle{ color: rgba(229,231,235,.7); }
+    .task.locked .subline{ color: rgba(148,163,184,.7); }
+    .task.locked .nav{ color: rgba(56,189,248,.65); }
+    .task.locked .meta span{ border-color: rgba(148,163,184,.16); }
+
+    .chk{
+      width: 22px;
+      height: 22px;
+      border-radius: 8px;
+      border:1px solid var(--line);
+      background: rgba(2,6,23,.35);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      margin-top: 2px;
+    }
+    input[type="checkbox"]{
+      width: 18px;
+      height: 18px;
+      accent-color: #38bdf8;
+      cursor:pointer;
+    }
+    .task.locked input[type="checkbox"]{ cursor:not-allowed; }
+
+    .body{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      min-width:0;
+    }
+    .head{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:baseline;
+      justify-content:space-between;
+    }
+    .toptitle{
+      font-size: 14px;
+      font-weight: 700;
+      line-height:1.25;
+      margin:0;
+    }
+    .subline{
+      font-size: 12px;
+      color: var(--muted);
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+    }
+    .time{
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+      padding: 4px 8px;
+      border:1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(2,6,23,.35);
+      white-space:nowrap;
+    }
+    .meta{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+      justify-content:flex-end;
+      margin-top: 2px;
+    }
+    .meta span{
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      border:1px solid var(--line);
+      background: rgba(2,6,23,.35);
+      white-space:nowrap;
+    }
+    .meta .sl{
+      border-color: rgba(245,158,11,.45);
+      background: rgba(245,158,11,.12);
+    }
+    .meta .gplus{ border-color: rgba(34,197,94,.45); background: rgba(34,197,94,.10); }
+    .meta .gminus{ border-color: rgba(239,68,68,.45); background: rgba(239,68,68,.10); }
+    .meta .sminus{ border-color: rgba(245,158,11,.45); background: rgba(245,158,11,.10); }
+    .meta .splus{ border-color: rgba(56,189,248,.45); background: rgba(56,189,248,.12); }
+
+    .note{
+      font-size: 13px;
+      line-height:1.4;
+      color: rgba(229,231,235,.92);
+    }
+    .nav{
+      padding: 10px 10px;
+      border-radius: 14px;
+      border:1px solid rgba(56,189,248,.35);
+      background: rgba(56,189,248,.10);
+      color: var(--nav);
+      font-size: 13px;
+      line-height:1.35;
+      font-weight: 700;
+      letter-spacing:.2px;
+    }
+    .nav .label{
+      font-family: var(--mono);
+      font-size: 12px;
+      color: rgba(56,189,248,.9);
+      opacity:.9;
+      margin-right:6px;
+    }
+    .nav .path{
+      font-weight: 800;
+    }
+    .nav .seg{
+      display:inline-block;
+      padding: 1px 6px;
+      border: 1px solid rgba(56,189,248,.28);
+      border-radius: 999px;
+      margin: 2px 4px 0 0;
+      background: rgba(2,6,23,.22);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .foot{
+      font-size: 12px;
+      color: var(--muted);
+      line-height:1.5;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top:1px dashed rgba(148,163,184,.22);
+    }
+
+    .toast{
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .toast strong{
+      font-family: var(--mono);
+      color: var(--ink);
+    }
+
+    @media (max-width: 720px){
+      .hudgrid{ grid-template-columns: 1fr; }
+      .task{ grid-template-columns: 34px 1fr; }
+      .meta{ justify-content:flex-start; }
+    }
+  </style>
 </head>
 <body>
+<div id="app">
+  <div class="wrap">
+    <div class="topbar">
+      <div class="hud card">
+        <div class="row">
+          <div class="title">
+            <h1>{{ script.dayName }}</h1>
+            <div class="sub">{{ script.phaseGoal }} · 单日线性状态机执行引擎</div>
+          </div>
 
-<div id="app" class="app-container">
-    <div class="hud-panel">
-        <div class="hud-header">
-            <span>{{ currentDayData.dayName }}</span>
-            <span style="font-size: 0.9rem; color: var(--text-muted)">阶段目标: {{ currentDayData.phaseGoal }}</span>
+          <div class="badge" title="强制线性执行：必须按顺序完成任务">
+            <span class="dot ok"></span>
+            State Machine: Linear Lock
+          </div>
         </div>
-        <div class="stats-grid">
-            <div class="stat-box">
-                <div style="font-size: 0.8rem; color: var(--text-muted)">预计资产 (G)</div>
-                <div class="stat-value val-gold">{{ currentGold }}</div>
-            </div>
-            <div class="stat-box">
-                <div style="font-size: 0.8rem; color: var(--text-muted)">当前体力值</div>
-                <div class="stat-value val-stamina">{{ currentStamina }} / 100</div>
-            </div>
+
+        <div class="hudgrid">
+          <div class="kpi">
+            <div class="k">金币 Gold</div>
+            <div class="v" :class="goldClass">{{ fmtGold(currentGold) }}</div>
+            <div class="hint" v-if="currentGold < 0">提示：金币为负仅作预估，不阻止勾选</div>
+            <div class="hint" v-else>baseGold + 已完成任务 goldDiff</div>
+          </div>
+
+          <div class="kpi">
+            <div class="k">体力 Stamina</div>
+            <div class="v" :class="staminaClass">{{ currentStamina }}/{{ maxStamina }}</div>
+            <div class="hint" v-if="currentStamina < 15">警告：体力低于 15，建议立刻补给</div>
+            <div class="hint" v-else>baseStamina + 已完成任务 stamDiff（封顶）</div>
+          </div>
+
+          <div class="kpi">
+            <div class="k">进度 Progress</div>
+            <div class="v ok">{{ doneCount }}/{{ script.tasks.length }}</div>
+            <div class="hint">后续任务未解锁前会灰色锁定</div>
+          </div>
         </div>
-        <div v-if="staminaWarning" style="color: var(--tas-red); font-size: 0.85rem; margin-top: 10px; text-align: center; font-weight:bold; background: rgba(255,51,102,0.1); padding: 5px;">
-            ⚠️ 警告：体力极度危险，禁止挥舞工具！
+
+        <div class="toast">
+          自动保存：<strong>localStorage</strong> · 刷新不会丢进度
         </div>
+      </div>
+
+      <div class="controls card">
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div class="pill">
+            当前日：<strong>{{ script.dayName }}</strong>
+          </div>
+          <div class="pill">
+            体力封顶：<strong>{{ maxStamina }}</strong>
+          </div>
+          <div class="pill">
+            低体力阈值：<strong>15</strong>
+          </div>
+        </div>
+
+        <div class="btnrow">
+          <button class="primary" @click="markUntilNext()">一键做到下一步</button>
+          <button class="small" @click="toggleShowNotes()">{{ showNotes ? '隐藏备注' : '显示备注' }}</button>
+          <button class="danger" @click="hardReset()">硬重置</button>
+        </div>
+      </div>
     </div>
 
-    <div class="timeline">
-        <div 
-            v-for="(task, index) in currentDayData.tasks" 
-            :key="task.id"
-            class="task-item"
-            :class="{ 
-                'completed': task.status === 'done', 
-                'active': task.status === 'active',
-                'locked': task.status === 'locked',
-                'is-sl': task.isSL 
-            }"
+    <div class="main card">
+      <div class="daymeta">
+        <div class="left">
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <span class="time">BaseGold: {{ fmtGold(script.baseGold) }}</span>
+            <span class="time">BaseStam: {{ script.baseStamina }}</span>
+            <span class="time">Hard Constraints: 无钓鱼/无捕虫/无厨房</span>
+          </div>
+          <div class="goal">执行目标：{{ script.phaseGoal }}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <span class="badge" :title="currentStamina < 15 ? '体力过低：请补给' : '体力正常'">
+            <span class="dot" :class="currentStamina < 15 ? 'bad' : 'ok'"></span>
+            Stamina {{ currentStamina < 15 ? 'CRITICAL' : 'OK' }}
+          </span>
+          <span class="badge" :title="currentGold < 0 ? '金币为负：仅预估，不阻止执行' : '金币正常'">
+            <span class="dot" :class="currentGold < 0 ? 'warn' : 'ok'"></span>
+            Gold {{ currentGold < 0 ? 'NEGATIVE' : 'OK' }}
+          </span>
+        </div>
+      </div>
+
+      <div class="tasks">
+        <div
+          class="task"
+          v-for="(t, idx) in script.tasks"
+          :key="t.id"
+          :class="taskClass(idx)"
         >
-            <div class="task-check" @click="executeTask(index)"></div>
-            <div class="task-content">
-                <div>
-                    <span class="task-time">{{ task.time }}</span>
-                    <span class="task-title">{{ task.title }}</span>
-                </div>
-                
-                <div class="task-meta">
-                    <span v-if="task.isSL" class="badge bg-red">强制 S/L</span>
-                    <span v-if="task.goldDiff" class="badge bg-gold">{{ task.goldDiff > 0 ? '+' : ''}}{{ task.goldDiff }} G</span>
-                    <span v-if="task.stamDiff" class="badge bg-blue">{{ task.stamDiff > 0 ? '+' : ''}}{{ task.stamDiff }} 体力</span>
-                </div>
-                
-                <div v-if="task.note" style="margin-top: 6px; font-size: 0.9rem; color: #aaa;">
-                    ➤ {{ task.note }}
-                </div>
-                <div v-if="task.nav" class="nav-text">
-                    📍 <b>导航:</b> {{ task.nav }}
-                </div>
-            </div>
-        </div>
-    </div>
+          <div class="chk">
+            <input
+              type="checkbox"
+              :checked="isDone(t.id)"
+              :disabled="isLocked(idx)"
+              @change="onToggleTask(t, idx, $event)"
+            />
+          </div>
 
-    <div class="controls">
-        <button @click="prevDay" :disabled="dayIndex === 0">◀ 撤回</button>
-        <button @click="resetDay" style="color: var(--tas-red); border-color: var(--tas-red);">↻ 重置本日</button>
-        <button @click="nextDay" :disabled="dayIndex === db.length - 1" style="color: var(--tas-green); border-color: var(--tas-green);">结算此日 ▶</button>
+          <div class="body">
+            <div class="head">
+              <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;min-width:0;">
+                <div class="time">{{ t.time }}</div>
+                <h3 class="toptitle">{{ t.title }}</h3>
+              </div>
+
+              <div class="meta">
+                <span v-if="t.isSL" class="sl">S/L</span>
+                <span v-if="t.goldDiff !== 0" :class="t.goldDiff > 0 ? 'gplus' : 'gminus'">
+                  {{ t.goldDiff > 0 ? '+' : '' }}{{ fmtGold(t.goldDiff) }}G
+                </span>
+                <span v-if="t.stamDiff !== 0" :class="t.stamDiff > 0 ? 'splus' : 'sminus'">
+                  {{ t.stamDiff > 0 ? '+' : '' }}{{ t.stamDiff }} STA
+                </span>
+                <span v-if="isLocked(idx)">LOCKED</span>
+                <span v-else-if="isDone(t.id)">DONE</span>
+                <span v-else>READY</span>
+              </div>
+            </div>
+
+            <div v-if="t.nav" class="nav">
+              <span class="label">NAV</span>
+              <span class="path">
+                <template v-for="(seg, i) in navSegments(t.nav)" :key="i">
+                  <span class="seg">{{ seg }}</span>
+                </template>
+              </span>
+            </div>
+
+            <div v-if="showNotes && t.note" class="note">{{ t.note }}</div>
+
+            <div class="subline">
+              <span v-if="t.npc">NPC：{{ t.npc }}</span>
+              <span v-if="t.tags && t.tags.length">标签：{{ t.tags.join(' / ') }}</span>
+              <span v-if="t.isSL" style="color:rgba(245,158,11,.95);font-weight:700;">
+                重要：此任务勾选会弹确认，确保你真的刷到了
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="foot">
+        规则默认值已按你的需求定死：
+        - 体力封顶 {{ maxStamina }}（执行中超过会被截断）
+        - 金币允许为负，仅作预估，不阻止勾选（会提示 NEGATIVE）
+        - 状态会自动保存到 localStorage（刷新不丢）
+        - 线性状态机：取消前置任务会自动回滚并锁住后续任务，避免断链
+      </div>
     </div>
+  </div>
 </div>
 
 <script>
-    const { createApp } = Vue;
+const { createApp } = Vue;
 
-    // ==========================================
-    // 竞速剧本数据库 (Spring Day 1 - 10)
-    // 专门针对: 狂暴挖矿 + 放弃钓鱼/做饭 + 狂舔女性NPC
-    // ==========================================
-    const speedrunDB = [
-        {
-            dayName: "Spring 01 (强制过场日)",
-            phaseGoal: "无情按A跳剧情，积攒初始战略物资",
-            baseGold: 0,
-            baseStamina: 100,
-            tasks: [
-                { id: 1, time: "06:00", title: "跳过教程剧情", note: "狂按A键跳过，不要看字。", stamDiff: 0, goldDiff: 0 },
-                { id: 2, time: "13:00", title: "拔草与捡石头", note: "清理牧场。杂草和石头是初期的送礼神器，绝对不许卖！放入屋内收纳箱。", stamDiff: -20, goldDiff: 0 },
-                { id: 3, time: "18:00", title: "立刻睡觉存档", stamDiff: 20, goldDiff: 0 }
-            ]
-        },
-        {
-            dayName: "Spring 02 (全镇签到与基建)",
-            phaseGoal: "零失误跑图，拿全所有工具",
-            baseGold: 0, baseStamina: 100,
-            tasks: [
-                { id: 1, time: "06:00", title: "出门拿种子", note: "镇长强制给芜菁种子", stamDiff: 0, goldDiff: 0 },
-                { id: 2, time: "08:00", title: "【路线A】杂货店找杰玛", nav: "牧场向右 -> 过石桥 -> 进镇子向右 -> 上台阶第一家店", note: "拿种子，顺手送她一朵路边捡的花", stamDiff: 0, goldDiff: 0 },
-                { id: 3, time: "09:00", title: "【路线B】打铁店拿镐子", nav: "出杂货店 -> 往右下走 -> 有铁砧招牌", note: "拿到十字镐，竞速关键！", stamDiff: 0, goldDiff: 0 },
-                { id: 4, time: "09:30", title: "【路线C】医院找护士塞雷娜", nav: "打铁店往左下 -> 白色十字架建筑", note: "进门触发剧情，送她路边的杂草/花。", stamDiff: 0, goldDiff: 0 },
-                { id: 5, time: "10:00", title: "【路线D】饭店找薇拉", nav: "医院右边 -> 红砖建筑", note: "进门打招呼，不用买东西，没钱。", stamDiff: 0, goldDiff: 0 },
-                { id: 6, time: "11:00", title: "【路线E】木工屋找潘特", nav: "原路跑回牧场 -> 往左走进入哗啦河 -> 往上看到粉色大树根进屋", note: "这是最远的点，跑完就全解锁了", stamDiff: 0, goldDiff: 0 },
-                { id: 7, time: "14:00", title: "回牧场种地", note: "开垦3x3的格子，种下芜菁，浇水。", stamDiff: -20, goldDiff: 0 },
-                { id: 8, time: "16:00", title: "睡觉", stamDiff: 20, goldDiff: 0 }
-            ]
-        },
-        {
-            dayName: "Spring 03 (血汗矿工日)",
-            phaseGoal: "S/L 挖掘第一桶金",
-            baseGold: 0, baseStamina: 100,
-            tasks: [
-                { id: 1, time: "06:00", title: "浇水并捡破烂", note: "浇完水去后山捡几个竹笋或梅子（回体力用）", stamDiff: -10, goldDiff: 0 },
-                { id: 2, time: "10:00", title: "前往矿洞", nav: "牧场向左 -> 哗啦河 -> 粉色树根左上角的黑洞口", stamDiff: 0, goldDiff: 0 },
-                { id: 3, time: "10:30", title: "深潜地下 3 层", isSL: true, note: "每层进门存档 -> 找楼梯 -> 读档直接挖。保持0无效耗体。", stamDiff: -10, goldDiff: 0 },
-                { id: 4, time: "13:00", title: "挖出化石/琥珀", isSL: true, note: "在地下3层疯狂S/L，没挖出价值3000G以上的化石绝不离开！", stamDiff: -20, goldDiff: 3000 },
-                { id: 5, time: "18:00", title: "极速出货", note: "把化石扔进红箱子，铜矿石保留千万别卖。", stamDiff: 0, goldDiff: 0 }
-            ]
-        },
-        {
-            dayName: "Spring 04 (资本变现日)",
-            phaseGoal: "购买大背包，解除槽位限制",
-            baseGold: 3000, baseStamina: 100,
-            tasks: [
-                { id: 1, time: "06:00", title: "日常浇水", stamDiff: -10, goldDiff: 0 },
-                { id: 2, time: "08:00", title: "杂货店扫货", nav: "去镇上杂货店", note: "购买大背包！购买1包高级肥料！", stamDiff: 0, goldDiff: -3000 },
-                { id: 3, time: "09:00", title: "种下冠军作物", note: "单种一颗芜菁，撒上刚买的高级肥料，每天施肥，为28日比赛做准备。", stamDiff: -5, goldDiff: 0 },
-                { id: 4, time: "10:00", title: "进城送礼", note: "送市长芜菁，送护士塞雷娜花草，送静香花。", stamDiff: 0, goldDiff: 0 },
-                { id: 5, time: "13:00", title: "重返矿洞", note: "随便挖点铜矿石，不要太肝，保持体力", stamDiff: -40, goldDiff: 1000 }
-            ]
-        },
-        {
-            dayName: "Spring 05 (关键道具解锁战)",
-            phaseGoal: "必须挖到金矿石，为任意门做准备",
-            baseGold: 1000, baseStamina: 100,
-            tasks: [
-                { id: 1, time: "06:00", title: "浇水施肥", note: "别忘了冠军芜菁", stamDiff: -10, goldDiff: 0 },
-                { id: 2, time: "09:00", title: "下矿深层", note: "今天必须下到地下 4-5 层以上", stamDiff: -20, goldDiff: 0, isSL: true },
-                { id: 3, time: "14:00", title: "挖取金矿石", note: "S/L 挖金矿！只要挖到一个，立刻收手，这是解锁神器的钥匙。", stamDiff: -30, goldDiff: 0, isSL: true },
-                { id: 4, time: "18:00", title: "挖取化石变现", stamDiff: -20, goldDiff: 4000 }
-            ]
-        },
-        {
-            dayName: "Spring 06 (工欲善其事)",
-            phaseGoal: "十字镐升级铜级",
-            baseGold: 5000, baseStamina: 100,
-            tasks: [
-                { id: 1, time: "06:00", title: "浇水施肥", stamDiff: -10, goldDiff: 0 },
-                { id: 2, time: "10:00", title: "铁匠铺升级工具", nav: "打铁店", note: "带着铜矿石和钱，把十字镐升级为铜镐。接下来几天不能挖矿了。", stamDiff: 0, goldDiff: -1500 },
-                { id: 3, time: "11:00", title: "社交疯狂送礼", note: "拿着路边的野果、鲜花，按顺序送：静香 -> 护士 -> 杰玛 -> 薇拉 -> 市长", stamDiff: -10, goldDiff: 0 },
-                { id: 4, time: "16:00", title: "砍树敲石头", note: "用剩余的体力在牧场囤积点软木和普通石材", stamDiff: -50, goldDiff: 0 }
-            ]
-        },
-        {
-            dayName: "Spring 07 (修整与布局)",
-            phaseGoal: "利用工具真空期刷好感",
-            baseGold: 3500, baseStamina: 100,
-            tasks: [
-                { id: 1, time: "06:00", title: "浇水施肥", stamDiff: -10, goldDiff: 0 },
-                { id: 2, time: "10:00", title: "医院买药", nav: "去医院找医生", note: "大量购买精力饮料（每瓶200G），为明天拿回镐子后的爆肝做准备。顺便送护士礼。", stamDiff: 0, goldDiff: -2000 },
-                { id: 3, time: "12:00", title: "静香跟踪狂", nav: "大地图寻找静香图标", note: "多与静香对话，这几天集中冲她的好感。", stamDiff: 0, goldDiff: 0 },
-                { id: 4, time: "15:00", title: "捡破烂", nav: "全图扫荡", note: "清理地图上所有能捡的竹笋、梅子，留作吃或送礼。", stamDiff: -10, goldDiff: 0 }
-            ]
-        },
-        {
-            dayName: "Spring 08 (重返荣耀)",
-            phaseGoal: "取回铜镐，挖矿效率翻倍",
-            baseGold: 1500, baseStamina: 100,
-            tasks: [
-                { id: 1, time: "06:00", title: "浇水施肥", stamDiff: -10, goldDiff: 0 },
-                { id: 2, time: "09:00", title: "取回铜镐", nav: "铁匠铺", note: "去打铁店拿到铜十字镐，从此挖普通的石头只要一下！", stamDiff: 0, goldDiff: 0 },
-                { id: 3, time: "10:00", title: "带着金矿石找市长", nav: "镇东金色大房子", note: "把包里的金矿石带上，触发任意门剧情（如果好感度已到）。未触发则继续送他芜菁。", stamDiff: 0, goldDiff: 0 },
-                { id: 4, time: "12:00", title: "无限下矿流", note: "带着昨天买的药，直接杀穿矿洞，目标 8000G。", stamDiff: -80, goldDiff: 8000 }
-            ]
-        },
-        {
-            dayName: "Spring 09 (芜菁大丰收)",
-            phaseGoal: "第一波作物变现",
-            baseGold: 9500, baseStamina: 100,
-            tasks: [
-                { id: 1, time: "06:00", title: "收割除比赛外所有芜菁", note: "保留那颗每天施肥的！其他的全拔了扔进出货箱。", stamDiff: -20, goldDiff: 1500 },
-                { id: 2, time: "08:00", title: "杂货店买补给", note: "买新的芜菁种子种下。", stamDiff: 0, goldDiff: -500 },
-                { id: 3, time: "10:00", title: "每日女性送礼循环", note: "护士(花) -> 静香(花) -> 薇拉(花)", stamDiff: 0, goldDiff: 0 },
-                { id: 4, time: "13:00", title: "继续挖矿", stamDiff: -60, goldDiff: 3000 }
-            ]
-        },
-        {
-            dayName: "Spring 10 (神速任意门)",
-            phaseGoal: "拿到任意门，地图移动时间彻底清零",
-            baseGold: 13500, baseStamina: 100,
-            tasks: [
-                { id: 1, time: "06:00", title: "浇水施肥", stamDiff: -10, goldDiff: 0 },
-                { id: 2, time: "09:00", title: "市长家提货", nav: "市长家", note: "如果前几天触发了剧情，今天再去一次，镇长会给你【任意门】！", stamDiff: 0, goldDiff: 0 },
-                { id: 3, time: "09:30", title: "任意门试驾送礼", note: "按L/R直接飞！瞬间跑完4个妹子送花！节省现实时间5分钟。", stamDiff: 0, goldDiff: 0 },
-                { id: 4, time: "11:00", title: "瞬间移动下矿", note: "直接飞到哗啦河，下矿，今天目标突破万元。", stamDiff: -70, goldDiff: 5000 }
-            ]
+createApp({
+  data(){
+    return {
+      storageKey: "dora_run_engine_v1_spring11",
+      showNotes: true,
+      maxStamina: 100,
+      script: {
+        dayName: "Spring 11 (狂暴攒钱日)",
+        phaseGoal: "资金突破 20000G（矿洞 S/L 主驱动）",
+        baseGold: 0,      // 会由 localStorage 继承（如你后续扩展多天脚本）
+        baseStamina: 100, // 封顶由 maxStamina 控制
+        tasks: [
+          {
+            id: 1,
+            time: "06:00",
+            title: "精准浇水（只浇必要作物，别贪）",
+            nav: "起床 -> 出门右手边就是田 -> 从上到下扫一遍 -> 结束立刻收水壶",
+            note: "体力管理优先：这一步只为维持基础产出，不追求量。",
+            stamDiff: -15,
+            goldDiff: 0,
+            tags: ["Farm", "Stamina"]
+          },
+          {
+            id: 2,
+            time: "08:40",
+            title: "【路线A】医院买精力饮料 + 送礼（塞雷娜）",
+            nav: "牧场出门向右 -> 过石桥 -> 继续向右到镇中心 -> 看到白色十字标志就是医院 -> 进门右侧柜台",
+            note: "买 5 瓶精力饮料（不够钱也先记账）。送礼：路边花 / 芦荟（海边）优先给塞雷娜。对话一次。",
+            stamDiff: 0,
+            goldDiff: -1000,
+            npc: "塞雷娜 (医院护士)",
+            tags: ["NPC", "Gift", "NoKitchen"]
+          },
+          {
+            id: 3,
+            time: "09:20",
+            title: "【路线B】杂货店补给 + 送礼（杰玛）",
+            nav: "医院出门 -> 向左回镇中心广场 -> 左上角木质招牌的小店就是杂货店 -> 进门柜台旁就是杰玛",
+            note: "优先买便宜稳定补给（如精力饮料预算不够就先跳过）。送礼：路边花/便宜货（避免料理）。对话一次。",
+            stamDiff: 0,
+            goldDiff: -300,
+            npc: "杰玛 (杂货店)",
+            tags: ["NPC", "Gift", "NoKitchen"]
+          },
+          {
+            id: 4,
+            time: "10:00",
+            title: "【路线C】饭店门口蹲点送礼（薇拉）",
+            nav: "杂货店出门 -> 往镇中心右侧走 -> 看到红砖+招牌的建筑就是饭店 -> 门口/柜台附近找薇拉",
+            note: "送礼：花/芦荟/便宜货（不要料理）。只做对话+送礼，不浪费时间点餐。",
+            stamDiff: 0,
+            goldDiff: 0,
+            npc: "薇拉 (饭店)",
+            tags: ["NPC", "Gift", "NoKitchen"]
+          },
+          {
+            id: 5,
+            time: "10:30",
+            title: "深潜矿洞 B5：S/L 挖化石/琥珀/金矿（没出不许走）",
+            isSL: true,
+            nav: "镇中心 -> 往右上方向走到山道 -> 一直向上看到洞口就是矿洞 -> 进洞直冲 B5（优先下楼，不恋战）",
+            note: "核心经济来源 90% 来自这里。目标：化石/琥珀/金矿点。没有出货：读档重来。出货后再勾选。",
+            stamDiff: -40,
+            goldDiff: 4500,
+            tags: ["Mine", "SL", "Economy"]
+          },
+          {
+            id: 6,
+            time: "13:30",
+            title: "矿洞二轮：B5 再刷一次（视体力决定是否喝药）",
+            isSL: true,
+            nav: "矿洞内 -> 继续反复 B5 S/L -> 出货后撤退 -> 需要补给则就地喝精力饮料",
+            note: "如果体力 < 15：优先喝精力饮料（你也可以把这步的 stamDiff 改成正数表示补给）。",
+            stamDiff: -30,
+            goldDiff: 3500,
+            tags: ["Mine", "SL"]
+          },
+          {
+            id: 7,
+            time: "16:30",
+            title: "回程补社交：静香（Sue）对话 + 送礼（只做一次）",
+            nav: "从山道下到镇中心 -> 找到静香常驻点（通常在镇中心附近活动）-> 看到黄色头发/温柔气质就是她",
+            note: "无厨房替代礼物：花/芦荟/便宜货。对话一次，送礼一次，马上走。",
+            stamDiff: 0,
+            goldDiff: 0,
+            npc: "静香 (Sue)",
+            tags: ["NPC", "Gift", "NoKitchen"]
+          },
+          {
+            id: 8,
+            time: "18:30",
+            title: "收尾结算：整理背包 + 明日矿洞准备（不做无意义移动）",
+            nav: "回到牧场 -> 进屋 -> 整理背包 -> 存档（重要）",
+            note: "把化石/琥珀/矿石卖出或留作升级材料按你策略决定。此步建议手动在游戏里完成后再勾。",
+            stamDiff: 0,
+            goldDiff: 0,
+            tags: ["WrapUp"]
+          },
+        ]
+      },
+      doneIds: []
+    };
+  },
+  computed:{
+    doneCount(){ return this.doneIds.length; },
+
+    currentGold(){
+      const delta = this.script.tasks
+        .filter(t => this.doneIds.includes(t.id))
+        .reduce((sum, t) => sum + (Number(t.goldDiff) || 0), 0);
+      return (Number(this.script.baseGold) || 0) + delta;
+    },
+    currentStamina(){
+      const delta = this.script.tasks
+        .filter(t => this.doneIds.includes(t.id))
+        .reduce((sum, t) => sum + (Number(t.stamDiff) || 0), 0);
+      const base = Number(this.script.baseStamina) || 0;
+      const raw = base + delta;
+      return Math.max(0, Math.min(this.maxStamina, raw));
+    },
+    staminaClass(){
+      if (this.currentStamina < 15) return "bad";
+      if (this.currentStamina < 30) return "warn";
+      return "ok";
+    },
+    goldClass(){
+      if (this.currentGold < 0) return "warn";
+      return "ok";
+    }
+  },
+  mounted(){
+    this.load();
+  },
+  methods:{
+    fmtGold(n){
+      const v = Number(n) || 0;
+      const sign = v < 0 ? "-" : "";
+      const abs = Math.abs(v);
+      return sign + abs.toLocaleString("en-US");
+    },
+    navSegments(navStr){
+      // 允许使用 "->" 分隔；也兼容中文箭头
+      const s = String(navStr || "").replace(/→/g, "->");
+      return s.split("->").map(x => x.trim()).filter(Boolean);
+    },
+
+    isDone(id){ return this.doneIds.includes(id); },
+
+    isLocked(idx){
+      // 线性状态机：必须完成前一个任务才能解锁当前
+      if (idx === 0) return false;
+      const prevId = this.script.tasks[idx - 1].id;
+      return !this.doneIds.includes(prevId);
+    },
+
+    taskClass(idx){
+      const t = this.script.tasks[idx];
+      return {
+        done: this.isDone(t.id),
+        locked: this.isLocked(idx)
+      };
+    },
+
+    onToggleTask(task, idx, evt){
+      const wantDone = evt.target.checked;
+
+      if (this.isLocked(idx)){
+        evt.target.checked = false;
+        return;
+      }
+
+      if (wantDone){
+        // S/L 任务：确认弹窗
+        if (task.isSL){
+          const ok = confirm("S/L 防呆警报：你是否已在游戏中确认拿到目标物品/出货？\n\n- 已出货：点确定\n- 没出货：点取消，回去读档继续刷");
+          if (!ok){
+            evt.target.checked = false;
+            return;
+          }
         }
-    ];
+        this.markDone(task.id);
+      } else {
+        // 回滚：取消该任务 -> 自动撤销它之后所有任务，避免断链
+        this.rollbackFromIndex(idx);
+      }
 
-    createApp({
-        data() {
-            return {
-                dayIndex: 0,
-                db: speedrunDB,
-                goldSnapshot: [0] // 记录每天开始时的真实资金快照，实现完美的时空回溯
-            }
-        },
-        computed: {
-            currentDayData() {
-                let day = JSON.parse(JSON.stringify(this.db[this.dayIndex]));
-                let isLocked = false;
-                
-                day.tasks.forEach((task, idx) => {
-                    if (!task.status) {
-                        if (isLocked) {
-                            task.status = 'locked';
-                        } else if (idx === 0 || day.tasks[idx-1].status === 'done') {
-                            task.status = 'active';
-                        } else {
-                            task.status = 'locked';
-                        }
-                    }
-                    if (task.status !== 'done') isLocked = true;
-                });
-                return day;
-            },
-            currentGold() {
-                // 严谨的资金流计算模型
-                let base = this.goldSnapshot[this.dayIndex];
-                let diff = 0;
-                this.db[this.dayIndex].tasks.forEach(t => {
-                    if (t.status === 'done' && t.goldDiff) diff += t.goldDiff;
-                });
-                return base + diff;
-            },
-            currentStamina() {
-                let stam = 100;
-                this.db[this.dayIndex].tasks.forEach(t => {
-                    if (t.status === 'done' && t.stamDiff) stam += t.stamDiff;
-                });
-                return stam > 100 ? 100 : stam;
-            },
-            staminaWarning() {
-                return this.currentStamina <= 15;
-            }
-        },
-        methods: {
-            executeTask(index) {
-                const task = this.currentDayData.tasks[index];
-                if (task.status === 'locked') return;
+      this.save();
+    },
 
-                if (task.isSL && task.status !== 'done') {
-                    if(!confirm("🔥 强制节点防呆验证：\n你确定已经在游戏内通过 S/L 达成了该目标？没拿到不要点确定！")) return;
-                }
+    markDone(id){
+      if (!this.doneIds.includes(id)) this.doneIds.push(id);
+      // 保持顺序一致（按任务顺序）
+      const order = new Map(this.script.tasks.map((t,i)=>[t.id,i]));
+      this.doneIds.sort((a,b)=>order.get(a)-order.get(b));
+    },
 
-                const realTask = this.db[this.dayIndex].tasks[index];
-                if (realTask.status === 'done') {
-                    for(let i = index; i < this.db[this.dayIndex].tasks.length; i++) {
-                        delete this.db[this.dayIndex].tasks[i].status;
-                    }
-                } else {
-                    realTask.status = 'done';
-                }
-            },
-            nextDay() {
-                if (this.dayIndex < this.db.length - 1) {
-                    // 结算并将当前金币快照存入下一天
-                    this.goldSnapshot[this.dayIndex + 1] = this.currentGold;
-                    this.dayIndex++;
-                    window.scrollTo(0, 0);
-                } else {
-                    alert("🏆 前 10 天极限试炼完成！你的预估资产已达 " + this.currentGold + " G！");
-                }
-            },
-            prevDay() {
-                if (this.dayIndex > 0) {
-                    this.dayIndex--;
-                    window.scrollTo(0, 0);
-                }
-            },
-            resetDay() {
-                if(confirm("将清除今天的所有打勾记录，确定吗？")) {
-                    this.db[this.dayIndex].tasks.forEach(t => delete t.status);
-                }
-            }
-        }
-    }).mount('#app');
+    rollbackFromIndex(idx){
+      const idsToRemove = this.script.tasks.slice(idx).map(t => t.id);
+      this.doneIds = this.doneIds.filter(id => !idsToRemove.includes(id));
+    },
+
+    markUntilNext(){
+      // 一键做到下一步：把当前可执行的第一个未完成任务勾上（若是 SL 也会弹 confirm）
+      const idx = this.script.tasks.findIndex((t, i) => !this.isDone(t.id) && !this.isLocked(i));
+      if (idx === -1) return;
+
+      const t = this.script.tasks[idx];
+      if (t.isSL){
+        const ok = confirm("S/L 防呆警报：你是否已在游戏中确认拿到目标物品/出货？\n\n- 已出货：点确定\n- 没出货：点取消，回去读档继续刷");
+        if (!ok) return;
+      }
+      this.markDone(t.id);
+      this.save();
+    },
+
+    toggleShowNotes(){
+      this.showNotes = !this.showNotes;
+      this.save();
+    },
+
+    save(){
+      try{
+        const payload = {
+          v: 1,
+          maxStamina: this.maxStamina,
+          showNotes: this.showNotes,
+          baseGold: this.script.baseGold,
+          baseStamina: this.script.baseStamina,
+          doneIds: this.doneIds
+        };
+        localStorage.setItem(this.storageKey, JSON.stringify(payload));
+      }catch(e){
+        // ignore
+      }
+    },
+
+    load(){
+      try{
+        const raw = localStorage.getItem(this.storageKey);
+        if (!raw) return;
+        const p = JSON.parse(raw);
+        if (!p || p.v !== 1) return;
+
+        if (typeof p.maxStamina === "number") this.maxStamina = p.maxStamina;
+        if (typeof p.showNotes === "boolean") this.showNotes = p.showNotes;
+
+        if (typeof p.baseGold === "number") this.script.baseGold = p.baseGold;
+        if (typeof p.baseStamina === "number") this.script.baseStamina = p.baseStamina;
+
+        if (Array.isArray(p.doneIds)) this.doneIds = p.doneIds.filter(x => typeof x === "number");
+      }catch(e){
+        // ignore
+      }
+    },
+
+    hardReset(){
+      const ok = confirm("硬重置：将清空所有勾选进度与本地保存。确定要重置吗？");
+      if (!ok) return;
+      this.doneIds = [];
+      try{ localStorage.removeItem(this.storageKey); }catch(e){}
+    }
+  }
+}).mount("#app");
 </script>
 </body>
 </html>
